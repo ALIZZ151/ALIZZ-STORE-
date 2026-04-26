@@ -1,9 +1,11 @@
 (function () {
-  const ADMIN_KEY = "EBPGK4q";
-  const ADMIN_PASSWORD = "TELUR AYAM";
-  const SESSION_KEY = "alizz_admin_logged_in";
+  const LOGIN_ERROR_MESSAGE = "Login gagal. Cek username atau password.";
+  const LOCKOUT_ERROR_MESSAGE = "Terlalu banyak percobaan login. Coba lagi beberapa menit.";
+  const RESET_CONFIRM_TEXT = "RESET ALIZZ";
 
   let products = [];
+  let isAdminAuthenticated = false;
+  let authCheckInProgress = false;
 
   document.addEventListener("DOMContentLoaded", function () {
     if (document.body.dataset.page !== "admin") return;
@@ -22,6 +24,11 @@
     document.querySelector("#productForm").addEventListener("submit", handleProductSubmit);
     document.querySelector("#resetFormBtn").addEventListener("click", resetForm);
     document.querySelector("#resetDataBtn").addEventListener("click", resetData);
+    document.querySelector("#exportProductsBtn").addEventListener("click", exportProducts);
+    document.querySelector("#importProductsBtn").addEventListener("click", function () {
+      document.querySelector("#importProductsFile").click();
+    });
+    document.querySelector("#importProductsFile").addEventListener("change", importProducts);
   }
 
   function setupMobileMenu() {
@@ -72,51 +79,116 @@
     window.closeAdminMobileMenu = closeMenu;
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault();
 
-    const key = document.querySelector("#adminKey").value.trim();
-    const password = document.querySelector("#adminPassword").value.trim();
+    const username = document.querySelector("#adminUsername").value.trim();
+    const password = document.querySelector("#adminPassword").value;
     const error = document.querySelector("#loginError");
+    const submitButton = document.querySelector("#loginForm button[type='submit']");
 
-    if (key === ADMIN_KEY && password === ADMIN_PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, "true");
-      error.textContent = "";
+    error.textContent = "";
+    setButtonLoading(submitButton, true, "Memproses...");
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password })
+      });
+      const result = await safeJson(response);
+
+      if (!response.ok || !result.ok) {
+        error.textContent = response.status === 429
+          ? LOCKOUT_ERROR_MESSAGE
+          : result.message || LOGIN_ERROR_MESSAGE;
+        return;
+      }
+
       document.querySelector("#loginForm").reset();
-      renderAdminState();
       showToast("Login admin berhasil.");
-    } else {
-      error.textContent = "Key atau password salah.";
+      await renderAdminState();
+    } catch (errorObject) {
+      error.textContent = "API login belum aktif. Jalankan lewat Vercel Dev atau deploy preview dengan env yang benar.";
+    } finally {
+      setButtonLoading(submitButton, false, "Login");
     }
   }
 
-  function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
+  async function logout() {
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "same-origin"
+      });
+    } catch (error) {}
+
+    isAdminAuthenticated = false;
     resetForm();
-    renderAdminState();
+    await renderAdminState();
     showToast("Admin berhasil logout.");
   }
 
-  function renderAdminState() {
-    const isLogin = sessionStorage.getItem(SESSION_KEY) === "true";
+  async function renderAdminState() {
+    if (authCheckInProgress) return;
+    authCheckInProgress = true;
+
     const entryNav = document.querySelector("#adminEntryNav");
+    const loginScreen = document.querySelector("#adminLoginScreen");
+    const dashboard = document.querySelector("#adminDashboard");
+    const securityNote = document.querySelector("#securityNote");
 
     if (typeof window.closeAdminMobileMenu === "function") {
       window.closeAdminMobileMenu();
     }
 
-    if (isLogin) {
+    try {
+      const response = await fetch("/api/me", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      const result = await safeJson(response);
+
+      isAdminAuthenticated = Boolean(response.ok && result.authenticated);
+
+      if (securityNote) {
+        if (!result.configured) {
+          securityNote.textContent = "Login admin belum aktif. Set environment variables admin di Vercel sebelum login.";
+        } else {
+          securityNote.textContent = "Login admin dicek lewat server-side API. Password tidak disimpan di frontend.";
+        }
+      }
+    } catch (error) {
+      isAdminAuthenticated = false;
+      if (securityNote) {
+        securityNote.textContent = "API admin belum aktif. Untuk test lokal gunakan npm run dev / npx vercel dev, bukan file static biasa.";
+      }
+    }
+
+    if (isAdminAuthenticated) {
       entryNav.classList.add("hidden");
-      document.querySelector("#adminLoginScreen").classList.add("hidden");
-      document.querySelector("#adminDashboard").classList.remove("hidden");
+      loginScreen.classList.add("hidden");
+      dashboard.classList.remove("hidden");
       products = window.ALIZZ_STORE.getProducts();
       renderSummary();
       renderTable();
     } else {
       entryNav.classList.remove("hidden");
-      document.querySelector("#adminLoginScreen").classList.remove("hidden");
-      document.querySelector("#adminDashboard").classList.add("hidden");
+      loginScreen.classList.remove("hidden");
+      dashboard.classList.add("hidden");
     }
+
+    authCheckInProgress = false;
+  }
+
+  function ensureAuthenticatedAction() {
+    if (isAdminAuthenticated) return true;
+
+    showToast("Session admin tidak valid. Silakan login ulang.");
+    renderAdminState();
+    return false;
   }
 
   function renderSummary() {
@@ -177,6 +249,7 @@
 
   function handleProductSubmit(event) {
     event.preventDefault();
+    if (!ensureAuthenticatedAction()) return;
 
     const existingId = document.querySelector("#productId").value.trim();
     const stock = Number(document.querySelector("#productStock").value);
@@ -227,12 +300,30 @@
       product.category &&
       product.price &&
       product.description &&
+      Array.isArray(product.benefits) &&
       product.benefits.length > 0 &&
       !Number.isNaN(Number(product.stock))
     );
   }
 
+  function validateProductsImport(data) {
+    return Array.isArray(data) && data.every(function (product) {
+      return validateProduct({
+        id: product.id,
+        name: product.name,
+        category: window.ALIZZ_STORE.normalizeCategory(product.category),
+        price: product.price,
+        stock: Number(product.stock),
+        description: product.description,
+        benefits: product.benefits,
+        status: product.status
+      });
+    });
+  }
+
   function editProduct(id) {
+    if (!ensureAuthenticatedAction()) return;
+
     const product = products.find(function (item) {
       return item.id === id;
     });
@@ -258,6 +349,8 @@
   }
 
   function deleteProduct(id) {
+    if (!ensureAuthenticatedAction()) return;
+
     const product = products.find(function (item) {
       return item.id === id;
     });
@@ -289,14 +382,80 @@
   }
 
   function resetData() {
-    const confirmed = confirm("Reset produk ke data awal? Semua perubahan localStorage akan diganti.");
-    if (!confirmed) return;
+    if (!ensureAuthenticatedAction()) return;
+
+    const typed = prompt(`Reset produk ke data awal? Ketik ${RESET_CONFIRM_TEXT} untuk lanjut.`);
+    if (typed !== RESET_CONFIRM_TEXT) {
+      showToast("Reset data dibatalkan.");
+      return;
+    }
 
     products = window.ALIZZ_STORE.resetProducts();
     resetForm();
     renderSummary();
     renderTable();
     showToast("Data produk berhasil direset.");
+  }
+
+  function exportProducts() {
+    if (!ensureAuthenticatedAction()) return;
+
+    const json = JSON.stringify(products, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "backup-produk-alizz.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast("Export produk JSON berhasil dibuat.");
+  }
+
+  async function importProducts(event) {
+    if (!ensureAuthenticatedAction()) return;
+
+    const fileInput = event.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      if (!validateProductsImport(parsed)) {
+        showToast("File JSON produk tidak valid.");
+        return;
+      }
+
+      const confirmed = confirm("Import akan mengganti produk di browser ini. Pastikan sudah export backup. Lanjutkan?");
+      if (!confirmed) return;
+
+      products = parsed.map(function (product) {
+        const stock = Number(product.stock);
+        return {
+          id: String(product.id || createProductId(product.name)),
+          name: String(product.name || "").trim(),
+          category: window.ALIZZ_STORE.normalizeCategory(product.category),
+          price: String(product.price || "").trim(),
+          stock: Number.isNaN(stock) ? 0 : stock,
+          description: String(product.description || "").trim(),
+          benefits: Array.isArray(product.benefits) ? product.benefits.map(String).filter(Boolean) : [],
+          status: product.status === "soldout" || stock <= 0 ? "soldout" : "available"
+        };
+      });
+
+      window.ALIZZ_STORE.saveProducts(products);
+      resetForm();
+      renderSummary();
+      renderTable();
+      showToast("Import produk JSON berhasil.");
+    } catch (error) {
+      showToast("Gagal membaca file JSON produk.");
+    } finally {
+      fileInput.value = "";
+    }
   }
 
   function createProductId(name) {
@@ -335,6 +494,21 @@
     window.alizzToastTimer = setTimeout(function () {
       toast.classList.remove("show");
     }, 2600);
+  }
+
+  function setButtonLoading(button, loading, text) {
+    if (!button) return;
+
+    button.disabled = loading;
+    button.textContent = text;
+  }
+
+  async function safeJson(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      return {};
+    }
   }
 
   function escapeHTML(value) {

@@ -108,19 +108,19 @@
           <p>Masuk untuk mengelola produk ALIZZ STORE.</p>
         </div>
 
-        <div class="security-note">
-          Website ini static tanpa backend. Login admin hanya memakai key/password dan sessionStorage untuk demo/local.
+        <div class="security-note" id="securityNote">
+          Login admin dicek lewat server-side API. Password tidak disimpan di frontend.
         </div>
 
         <form id="loginForm" class="form-grid">
           <label>
-            Input Key
-            <input type="text" id="adminKey" placeholder="Masukkan key admin" autocomplete="off" />
+            Username Admin
+            <input type="text" id="adminUsername" placeholder="Masukkan username admin" autocomplete="username" required />
           </label>
 
           <label>
-            Input Password
-            <input type="password" id="adminPassword" placeholder="Masukkan password admin" autocomplete="off" />
+            Password Admin
+            <input type="password" id="adminPassword" placeholder="Masukkan password admin" autocomplete="current-password" required />
           </label>
 
           <button class="btn btn-primary full" type="submit">Login</button>
@@ -244,9 +244,14 @@
             <div class="panel-title">
               <div>
                 <h2>List Produk</h2>
-                <p>Produk dari localStorage browser.</p>
+                <p>Produk dari localStorage browser. Backup dulu sebelum import atau reset data.</p>
               </div>
-              <button class="btn btn-outline btn-sm" id="resetDataBtn" type="button">Reset Data Awal</button>
+              <div class="admin-top-actions">
+                <button class="btn btn-outline btn-sm" id="exportProductsBtn" type="button">Export Produk JSON</button>
+                <button class="btn btn-outline btn-sm" id="importProductsBtn" type="button">Import Produk JSON</button>
+                <button class="btn btn-outline btn-sm" id="resetDataBtn" type="button">Reset Data Awal</button>
+                <input type="file" id="importProductsFile" accept=".json,application/json" hidden />
+              </div>
             </div>
 
             <div class="table-wrap">

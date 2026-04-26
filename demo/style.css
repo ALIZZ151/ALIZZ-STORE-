@@ -155,6 +155,48 @@ button {
   box-shadow: 0 16px 46px rgba(59, 130, 246, 0.3);
 }
 
+.brand-avatar {
+  overflow: hidden;
+  padding: 2px;
+  background: var(--gradient);
+}
+
+.brand-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.brand-text {
+  display: block;
+  min-width: 0;
+}
+
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.1;
+}
+
+.verified-badge {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 4px 10px rgba(59, 130, 246, 0.35));
+}
+
+.verified-badge svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .brand strong {
   display: block;
   font-size: 1rem;
@@ -314,6 +356,11 @@ button {
 
 .mobile-menu .brand small {
   font-size: 0.64rem;
+}
+
+.mobile-menu .verified-badge {
+  width: 14px;
+  height: 14px;
 }
 
 .mobile-close {

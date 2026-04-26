@@ -1,1 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>Admin - ALIZZ STORE</title>
+  <meta name="description" content="Halaman admin ALIZZ STORE untuk mengelola produk." />
+
+  <link rel="stylesheet" href="../demo/style.css" />
+  <script defer src="../produk/database.js"></script>
+  <script defer src="admin.js"></script>
+</head>
+
+<body data-page="admin">
+  <div class="bg-grid"></div>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <header class="navbar admin-entry-nav" id="adminEntryNav">
+    <div class="nav-container">
+      <a href="/" class="brand" aria-label="ALIZZ STORE Home">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>ADMIN PANEL</small>
+        </span>
+      </a>
+
+      <nav class="nav-menu" aria-label="Navigasi utama">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="/admin/">Admin</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="/produk/" class="btn btn-outline btn-sm">Lihat Produk</a>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <div class="mobile-menu-head">
+      <a href="/" class="brand">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>Mobile Menu</small>
+        </span>
+      </a>
+      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
+    </div>
+    <nav class="mobile-links" aria-label="Navigasi mobile">
+      <a href="/"><span>⌂</span>Home</a>
+      <a href="/produk/"><span>□</span>Produk</a>
+      <a href="/admin/" class="active mobile-cta"><span>⚙</span>Admin</a>
+    </nav>
+  </aside>
+
+  <main>
+    <section class="admin-login-screen" id="adminLoginScreen">
+      <div class="admin-login-card reveal">
+        <a href="/" class="brand admin-login-brand">
+          <span class="brand-logo">A</span>
+          <span>
+            <strong>ALIZZ STORE</strong>
+            <small>PANEL • BOT • SCRIPT</small>
+          </span>
+        </a>
+
+        <div class="auth-heading">
+          <span class="eyebrow">Admin Area</span>
+          <h1>Login Admin</h1>
+          <p>Masuk untuk mengelola produk ALIZZ STORE.</p>
+        </div>
+
+        <div class="security-note">
+          Website ini static tanpa backend. Login admin hanya memakai key/password dan sessionStorage untuk demo/local.
+        </div>
+
+        <form id="loginForm" class="form-grid">
+          <label>
+            Input Key
+            <input type="text" id="adminKey" placeholder="Masukkan key admin" autocomplete="off" />
+          </label>
+
+          <label>
+            Input Password
+            <input type="password" id="adminPassword" placeholder="Masukkan password admin" autocomplete="off" />
+          </label>
+
+          <button class="btn btn-primary full" type="submit">Login</button>
+          <p class="form-error" id="loginError"></p>
+        </form>
+
+        <a href="/" class="back-link">← Kembali ke halaman utama</a>
+      </div>
+    </section>
+
+    <section class="admin-dashboard hidden" id="adminDashboard">
+      <aside class="admin-sidebar">
+        <a href="/" class="brand">
+          <span class="brand-logo">A</span>
+          <span>
+            <strong>ALIZZ STORE</strong>
+            <small>Admin Panel</small>
+          </span>
+        </a>
+
+        <nav class="admin-nav">
+          <a href="#dashboard">Dashboard</a>
+          <a href="#produk-admin">Produk</a>
+          <button type="button" id="sidebarLogoutBtn">Logout</button>
+        </nav>
+      </aside>
+
+      <div class="admin-content">
+        <header class="admin-topbar" id="dashboard">
+          <div>
+            <span class="eyebrow">Dashboard</span>
+            <h1>Kelola Produk</h1>
+            <p>Tambah, edit, hapus, ubah stok, harga, kategori, deskripsi, benefit, dan status produk.</p>
+          </div>
+
+          <div class="admin-top-actions">
+            <a href="/produk/" class="btn btn-outline">Lihat Katalog</a>
+            <button class="btn btn-ghost" id="topLogoutBtn">Logout</button>
+          </div>
+        </header>
+
+        <section class="summary-grid">
+          <div class="summary-card"><span>Total Produk</span><strong id="summaryTotal">0</strong></div>
+          <div class="summary-card"><span>Produk Tersedia</span><strong id="summaryAvailable">0</strong></div>
+          <div class="summary-card"><span>Produk Habis</span><strong id="summarySoldout">0</strong></div>
+          <div class="summary-card"><span>Total Stok</span><strong id="summaryStock">0</strong></div>
+        </section>
+
+        <section class="admin-grid" id="produk-admin">
+          <div class="admin-panel">
+            <div class="panel-title">
+              <div>
+                <h2 id="formTitle">Tambah Produk</h2>
+                <p>Upload barang baru atau edit produk lama.</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" type="button" id="resetFormBtn">Reset</button>
+            </div>
+
+            <form id="productForm" class="form-grid">
+              <input type="hidden" id="productId" />
+
+              <label>
+                Nama Barang
+                <input type="text" id="productName" placeholder="Contoh: APK Mod" required />
+              </label>
+
+              <label>
+                Kategori
+                <select id="productCategory" required>
+                  <option value="Panel">Panel</option>
+                  <option value="Membership">Membership</option>
+                  <option value="Sewa Bot">Sewa Bot</option>
+                  <option value="Script">Script</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </label>
+
+              <label>
+                Harga
+                <input type="text" id="productPrice" placeholder="Contoh: Rp10.000" required />
+              </label>
+
+              <label>
+                Stok
+                <input type="number" id="productStock" min="0" value="1" required />
+              </label>
+
+              <label>
+                Deskripsi Barang
+                <textarea id="productDescription" rows="3" placeholder="Deskripsi singkat produk" required></textarea>
+              </label>
+
+              <label>
+                Benefit Barang
+                <textarea id="productBenefits" rows="5" placeholder="Pisahkan benefit dengan baris baru" required></textarea>
+              </label>
+
+              <label>
+                Status Barang
+                <select id="productStatus">
+                  <option value="available">Tersedia</option>
+                  <option value="soldout">Habis</option>
+                </select>
+              </label>
+
+              <button class="btn btn-primary full" type="submit" id="saveProductBtn">Simpan Produk</button>
+            </form>
+          </div>
+
+          <div class="admin-panel">
+            <div class="panel-title">
+              <div>
+                <h2>List Produk</h2>
+                <p>Produk dari localStorage browser.</p>
+              </div>
+              <button class="btn btn-outline btn-sm" id="resetDataBtn" type="button">Reset Data Awal</button>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nama Produk</th>
+                    <th>Kategori</th>
+                    <th>Harga</th>
+                    <th>Stok</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="productTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>

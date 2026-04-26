@@ -7,8 +7,8 @@
   <title>Katalog Produk - ALIZZ STORE</title>
   <meta name="description" content="Katalog produk ALIZZ STORE: panel Pterodactyl, membership, sewa bot, script bot, dan produk digital lainnya." />
 
-  <link rel="stylesheet" href="../style.css" />
-  <script defer src="../database.js"></script>
+  <link rel="stylesheet" href="../demo/style.css" />
+  <script defer src="database.js"></script>
   <script defer src="produk.js"></script>
 </head>
 
@@ -19,36 +19,49 @@
 
   <header class="navbar">
     <div class="nav-container">
-      <a href="/" class="brand brand-box">
-        <img src="../assets/alizz-pp.jpg" alt="ALIZZ STORE Profile" class="brand-avatar" />
-
-        <span class="brand-text">
-          <span class="brand-title-row">
-            <strong class="brand-title">ALIZZ STORE</strong>
-            <span class="verified-badge" aria-label="Verified">✓</span>
-          </span>
-          <small class="brand-subtitle">PANEL • BOT • SCRIPT</small>
-          <small class="brand-tagline">TOKO AMAN • TERPERCAYA</small>
+      <a href="/" class="brand" aria-label="ALIZZ STORE Home">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>PANEL • BOT • SCRIPT</small>
         </span>
       </a>
 
-      <nav class="nav-menu" id="navMenu">
+      <nav class="nav-menu" aria-label="Navigasi utama">
         <a href="/">Home</a>
         <a href="/produk/">Produk</a>
         <a href="#kontak">Kontak</a>
-        <a href="/admin/" class="nav-admin">Admin Login</a>
+        <a href="/admin/">Admin</a>
       </nav>
 
       <div class="nav-actions">
         <button class="btn btn-primary btn-sm js-chat-admin">Chat Admin</button>
-        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu">
-          <span></span>
-          <span></span>
-          <span></span>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
+          <span></span><span></span><span></span>
         </button>
       </div>
     </div>
   </header>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <div class="mobile-menu-head">
+      <a href="/" class="brand">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>Mobile Menu</small>
+        </span>
+      </a>
+      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
+    </div>
+    <nav class="mobile-links" aria-label="Navigasi mobile">
+      <a href="/"><span>⌂</span>Home</a>
+      <a href="/produk/" class="active"><span>□</span>Produk</a>
+      <a href="#kontak"><span>☎</span>Kontak</a>
+      <a href="/admin/" class="mobile-cta"><span>⚙</span>Admin Login</a>
+    </nav>
+  </aside>
 
   <main>
     <section class="section product-hero">
@@ -98,14 +111,8 @@
             </p>
 
             <div class="contact-list">
-              <div>
-                <span>WhatsApp</span>
-                <strong>6285922199847</strong>
-              </div>
-              <div>
-                <span>DANA</span>
-                <strong>085943502869</strong>
-              </div>
+              <div><span>WhatsApp</span><strong>6285922199847</strong></div>
+              <div><span>DANA</span><strong>085943502869</strong></div>
             </div>
           </div>
 
@@ -121,16 +128,9 @@
   <footer class="footer">
     <div class="container footer-grid">
       <div>
-        <a href="/" class="brand brand-box">
-          <img src="../assets/alizz-pp.jpg" alt="ALIZZ STORE Profile" class="brand-avatar" />
-          <span class="brand-text">
-            <span class="brand-title-row">
-              <strong class="brand-title">ALIZZ STORE</strong>
-              <span class="verified-badge" aria-label="Verified">✓</span>
-            </span>
-            <small class="brand-subtitle">PANEL • BOT • SCRIPT</small>
-            <small class="brand-tagline">TOKO AMAN • TERPERCAYA</small>
-          </span>
+        <a href="/" class="brand">
+          <span class="brand-logo">A</span>
+          <span><strong>ALIZZ STORE</strong><small>PANEL • BOT • SCRIPT</small></span>
         </a>
         <p>Katalog produk digital ALIZZ STORE untuk panel, bot, membership, script, dan produk custom.</p>
       </div>
@@ -141,15 +141,10 @@
         <a href="/admin/">Admin</a>
       </div>
 
-      <div class="footer-contact">
-        <span>WhatsApp</span>
-        <strong>6285922199847</strong>
-      </div>
+      <div class="footer-contact"><span>WhatsApp</span><strong>6285922199847</strong></div>
     </div>
 
-    <div class="container copyright">
-      © <span id="yearNow"></span> ALIZZ STORE. All rights reserved.
-    </div>
+    <div class="container copyright">© <span id="yearNow"></span> ALIZZ STORE. All rights reserved.</div>
   </footer>
 
   <div class="toast" id="toast"></div>

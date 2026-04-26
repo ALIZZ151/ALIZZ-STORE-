@@ -7,8 +7,8 @@
   <title>Admin - ALIZZ STORE</title>
   <meta name="description" content="Halaman admin ALIZZ STORE untuk mengelola produk." />
 
-  <link rel="stylesheet" href="../style.css" />
-  <script defer src="../database.js"></script>
+  <link rel="stylesheet" href="../demo/style.css" />
+  <script defer src="../produk/database.js"></script>
   <script defer src="admin.js"></script>
 </head>
 
@@ -17,19 +17,58 @@
   <div class="glow glow-1"></div>
   <div class="glow glow-2"></div>
 
+  <header class="navbar admin-entry-nav" id="adminEntryNav">
+    <div class="nav-container">
+      <a href="/" class="brand" aria-label="ALIZZ STORE Home">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>ADMIN PANEL</small>
+        </span>
+      </a>
+
+      <nav class="nav-menu" aria-label="Navigasi utama">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="/admin/">Admin</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="/produk/" class="btn btn-outline btn-sm">Lihat Produk</a>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <div class="mobile-menu-head">
+      <a href="/" class="brand">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>Mobile Menu</small>
+        </span>
+      </a>
+      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
+    </div>
+    <nav class="mobile-links" aria-label="Navigasi mobile">
+      <a href="/"><span>⌂</span>Home</a>
+      <a href="/produk/"><span>□</span>Produk</a>
+      <a href="/admin/" class="active mobile-cta"><span>⚙</span>Admin</a>
+    </nav>
+  </aside>
+
   <main>
     <section class="admin-login-screen" id="adminLoginScreen">
       <div class="admin-login-card reveal">
-        <a href="/" class="brand brand-box admin-login-brand">
-          <img src="../assets/alizz-pp.jpg" alt="ALIZZ STORE Profile" class="brand-avatar" />
-
-          <span class="brand-text">
-            <span class="brand-title-row">
-              <strong class="brand-title">ALIZZ STORE</strong>
-              <span class="verified-badge" aria-label="Verified">✓</span>
-            </span>
-            <small class="brand-subtitle">PANEL • BOT • SCRIPT</small>
-            <small class="brand-tagline">TOKO AMAN • TERPERCAYA</small>
+        <a href="/" class="brand admin-login-brand">
+          <span class="brand-logo">A</span>
+          <span>
+            <strong>ALIZZ STORE</strong>
+            <small>PANEL • BOT • SCRIPT</small>
           </span>
         </a>
 
@@ -64,16 +103,11 @@
 
     <section class="admin-dashboard hidden" id="adminDashboard">
       <aside class="admin-sidebar">
-        <a href="/" class="brand brand-box">
-          <img src="../assets/alizz-pp.jpg" alt="ALIZZ STORE Profile" class="brand-avatar" />
-
-          <span class="brand-text">
-            <span class="brand-title-row">
-              <strong class="brand-title">ALIZZ STORE</strong>
-              <span class="verified-badge" aria-label="Verified">✓</span>
-            </span>
-            <small class="brand-subtitle">Admin Panel</small>
-            <small class="brand-tagline">TOKO AMAN • TERPERCAYA</small>
+        <a href="/" class="brand">
+          <span class="brand-logo">A</span>
+          <span>
+            <strong>ALIZZ STORE</strong>
+            <small>Admin Panel</small>
           </span>
         </a>
 
@@ -99,22 +133,10 @@
         </header>
 
         <section class="summary-grid">
-          <div class="summary-card">
-            <span>Total Produk</span>
-            <strong id="summaryTotal">0</strong>
-          </div>
-          <div class="summary-card">
-            <span>Produk Tersedia</span>
-            <strong id="summaryAvailable">0</strong>
-          </div>
-          <div class="summary-card">
-            <span>Produk Habis</span>
-            <strong id="summarySoldout">0</strong>
-          </div>
-          <div class="summary-card">
-            <span>Total Stok</span>
-            <strong id="summaryStock">0</strong>
-          </div>
+          <div class="summary-card"><span>Total Produk</span><strong id="summaryTotal">0</strong></div>
+          <div class="summary-card"><span>Produk Tersedia</span><strong id="summaryAvailable">0</strong></div>
+          <div class="summary-card"><span>Produk Habis</span><strong id="summarySoldout">0</strong></div>
+          <div class="summary-card"><span>Total Stok</span><strong id="summaryStock">0</strong></div>
         </section>
 
         <section class="admin-grid" id="produk-admin">

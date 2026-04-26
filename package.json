@@ -1,0 +1,13 @@
+{
+  "name": "alizz-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static ALIZZ STORE website for GitHub and Vercel deployment.",
+  "scripts": {
+    "start": "npx vercel dev",
+    "dev": "npx vercel dev",
+    "serve": "npx serve ."
+  },
+  "keywords": ["static", "digital-store", "alizz-store"],
+  "license": "UNLICENSED"
+}

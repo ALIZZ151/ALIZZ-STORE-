@@ -1,0 +1,13 @@
+{
+  "redirects": [
+    { "source": "/produk", "destination": "/produk/", "permanent": false },
+    { "source": "/admin", "destination": "/admin/", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/", "destination": "/demo/index.html" },
+    { "source": "/style.css", "destination": "/demo/style.css" },
+    { "source": "/script.js", "destination": "/demo/script.js" },
+    { "source": "/produk/", "destination": "/produk/index.html" },
+    { "source": "/admin/", "destination": "/admin/index.html" }
+  ]
+}

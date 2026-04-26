@@ -1,1 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>Katalog Produk - ALIZZ STORE</title>
+  <meta name="description" content="Katalog produk ALIZZ STORE: panel Pterodactyl, membership, sewa bot, script bot, dan produk digital lainnya." />
+
+  <link rel="stylesheet" href="../demo/style.css" />
+  <script defer src="database.js"></script>
+  <script defer src="produk.js"></script>
+</head>
+
+<body data-page="produk">
+  <div class="bg-grid"></div>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/" class="brand" aria-label="ALIZZ STORE Home">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>PANEL • BOT • SCRIPT</small>
+        </span>
+      </a>
+
+      <nav class="nav-menu" aria-label="Navigasi utama">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="#kontak">Kontak</a>
+        <a href="/admin/">Admin</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="btn btn-primary btn-sm js-chat-admin">Chat Admin</button>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <div class="mobile-menu-head">
+      <a href="/" class="brand">
+        <span class="brand-logo">A</span>
+        <span>
+          <strong>ALIZZ STORE</strong>
+          <small>Mobile Menu</small>
+        </span>
+      </a>
+      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
+    </div>
+    <nav class="mobile-links" aria-label="Navigasi mobile">
+      <a href="/"><span>⌂</span>Home</a>
+      <a href="/produk/" class="active"><span>□</span>Produk</a>
+      <a href="#kontak"><span>☎</span>Kontak</a>
+      <a href="/admin/" class="mobile-cta"><span>⚙</span>Admin Login</a>
+    </nav>
+  </aside>
+
+  <main>
+    <section class="section product-hero">
+      <div class="container">
+        <div class="page-heading reveal">
+          <span class="eyebrow">Katalog Produk</span>
+          <h1>Katalog Produk ALIZZ STORE</h1>
+          <p>
+            Pilih produk digital yang kamu butuhkan. Panel, membership, sewa bot,
+            script, sampai produk custom ada di sini.
+          </p>
+        </div>
+
+        <div class="catalog-tools reveal delay-1">
+          <div class="search-box">
+            <span>⌕</span>
+            <input type="text" id="searchInput" placeholder="Cari produk..." />
+          </div>
+
+          <div class="filter-tabs" id="filterTabs">
+            <button class="filter-btn active" data-category="Semua">Semua</button>
+            <button class="filter-btn" data-category="Panel">Panel</button>
+            <button class="filter-btn" data-category="Membership">Membership</button>
+            <button class="filter-btn" data-category="Sewa Bot">Sewa Bot</button>
+            <button class="filter-btn" data-category="Script">Script</button>
+            <button class="filter-btn" data-category="Lainnya">Lainnya</button>
+          </div>
+        </div>
+
+        <div class="category-sections" id="categorySections"></div>
+
+        <div class="empty-state hidden" id="emptyState">
+          <h3>Produk tidak ditemukan</h3>
+          <p>Coba gunakan kata kunci lain atau pilih kategori berbeda.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="kontak">
+      <div class="container">
+        <div class="contact-card reveal">
+          <div>
+            <span class="eyebrow">Kontak & Pembayaran</span>
+            <h2>Siap Order Sekarang?</h2>
+            <p>
+              Klik beli di produk yang kamu mau, atau langsung chat admin untuk tanya stok dan detail produk.
+            </p>
+
+            <div class="contact-list">
+              <div><span>WhatsApp</span><strong>6285922199847</strong></div>
+              <div><span>DANA</span><strong>085943502869</strong></div>
+            </div>
+          </div>
+
+          <div class="contact-actions">
+            <button class="btn btn-primary js-chat-admin">Chat Admin</button>
+            <button class="btn btn-outline js-copy-dana">Salin Nomor DANA</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <a href="/" class="brand">
+          <span class="brand-logo">A</span>
+          <span><strong>ALIZZ STORE</strong><small>PANEL • BOT • SCRIPT</small></span>
+        </a>
+        <p>Katalog produk digital ALIZZ STORE untuk panel, bot, membership, script, dan produk custom.</p>
+      </div>
+
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="/admin/">Admin</a>
+      </div>
+
+      <div class="footer-contact"><span>WhatsApp</span><strong>6285922199847</strong></div>
+    </div>
+
+    <div class="container copyright">© <span id="yearNow"></span> ALIZZ STORE. All rights reserved.</div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>

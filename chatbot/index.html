@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASISTEN STORE - ALIZZ STORE</title>
+  <meta name="description" content="ASISTEN STORE adalah chatbot lokal ALIZZ STORE untuk bantu tanya produk, panel, bot WhatsApp, script, order, dan kontak admin." />
+
+  <link rel="stylesheet" href="../demo/style.css" />
+  <script defer src="../produk/database.js"></script>
+  <script defer src="database.js"></script>
+  <script defer src="../demo/script.js"></script>
+</head>
+<body data-page="chatbot">
+  <div class="bg-grid"></div>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/" class="brand" aria-label="ALIZZ STORE Home">
+        <span class="brand-logo brand-avatar">
+          <img src="/alizz-pp.jpg" alt="ALIZZ STORE Profile" />
+        </span>
+        <span class="brand-text">
+          <span class="brand-title-row">
+            <strong>ALIZZ STORE</strong>
+            <span class="verified-badge" aria-label="Terverifikasi" title="Terverifikasi">
+              <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#3b82f6" />
+                <path d="M7.25 12.2l3.05 3.05 6.45-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </span>
+          <small>ASISTEN STORE</small>
+        </span>
+      </a>
+
+      <nav class="nav-menu" aria-label="Navigasi utama">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="/chatbot/">Asisten Store</a>
+        <a href="/admin/">Admin</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="/produk/" class="btn btn-primary btn-sm">Lihat Produk</a>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <div class="mobile-menu-head">
+      <a href="/" class="brand">
+        <span class="brand-logo brand-avatar">
+          <img src="/alizz-pp.jpg" alt="ALIZZ STORE Profile" />
+        </span>
+        <span class="brand-text">
+          <span class="brand-title-row">
+            <strong>ALIZZ STORE</strong>
+            <span class="verified-badge" aria-label="Terverifikasi" title="Terverifikasi">
+              <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#3b82f6" />
+                <path d="M7.25 12.2l3.05 3.05 6.45-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </span>
+          <small>Mobile Menu</small>
+        </span>
+      </a>
+      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
+    </div>
+    <nav class="mobile-links" aria-label="Navigasi mobile">
+      <a href="/"><span>⌂</span>Home</a>
+      <a href="/produk/"><span>□</span>Produk</a>
+      <a href="/chatbot/" class="active"><span>🤖</span>Asisten Store</a>
+      <a href="/admin/" class="mobile-cta"><span>⚙</span>Admin Login</a>
+    </nav>
+  </aside>
+
+  <main class="chatbot-main">
+    <section class="chatbot-hero section">
+      <div class="container chatbot-layout">
+        <div class="chatbot-copy reveal">
+          <span class="eyebrow">Chatbot Lokal</span>
+          <h1>ASISTEN STORE</h1>
+          <p>
+            Tanya soal ALIZZ STORE, panel Pterodactyl, sewa bot WhatsApp, script bot,
+            cara order, stok, harga, dan kontak admin. Chatbot ini rule-based lokal tanpa API AI eksternal.
+          </p>
+          <div class="chatbot-contact-mini">
+            <span>Owner: <strong>ALIZZ</strong></span>
+            <span>Status: <strong>Online</strong></span>
+          </div>
+        </div>
+
+        <section class="chatbot-panel reveal delay-1" aria-label="Chat ASISTEN STORE">
+          <div class="chatbot-header">
+            <div class="chatbot-profile">
+              <span class="chatbot-avatar">
+                <img src="chatbot-profile.jpg" alt="Foto profil ASISTEN STORE" />
+              </span>
+              <div>
+                <h2>ASISTEN STORE</h2>
+                <p><span class="online-dot"></span>Online • siap bantu produk ALIZZ STORE</p>
+              </div>
+            </div>
+            <button class="chatbot-clear-btn" type="button" id="clearChatBtn">Hapus Chat</button>
+          </div>
+
+          <div class="chatbot-notice">
+            Chat tersimpan lokal di browser kamu. Jangan kirim password, token, atau data sensitif.
+          </div>
+
+          <div class="chat-messages" id="chatMessages" aria-live="polite" aria-label="Riwayat chat"></div>
+
+          <div class="quick-replies" id="quickReplies" aria-label="Rekomendasi pertanyaan"></div>
+
+          <form class="chat-form" id="chatForm" autocomplete="off">
+            <label class="sr-only" for="chatInput">Ketik pesan</label>
+            <input
+              type="text"
+              id="chatInput"
+              maxlength="500"
+              placeholder="Tanya produk, harga panel, cara order..."
+              aria-label="Ketik pesan untuk ASISTEN STORE"
+            />
+            <button type="submit" class="chat-send-btn">Kirim</button>
+          </form>
+        </section>
+
+        <aside class="chatbot-side reveal delay-2" aria-label="Kontak cepat ALIZZ STORE">
+          <div class="chatbot-side-card">
+            <h2>Kontak Order</h2>
+            <p>Untuk pembelian produk, hubungi admin order. Jangan kebalik dengan kontak bug report.</p>
+            <div class="side-contact-list">
+              <span>WhatsApp Order: <strong>6281914401217</strong></span>
+              <span>Telegram Order: <strong>@my_bini</strong></span>
+            </div>
+            <div class="side-actions">
+              <a href="https://wa.me/6281914401217?text=Halo%20admin%20ALIZZ%20STORE%2C%20saya%20mau%20order%20produk%20digital.%20Bisa%20dibantu%3F" class="btn btn-primary" target="_blank" rel="noopener noreferrer" id="orderWhatsAppBtn">Order WhatsApp</a>
+              <a href="https://t.me/my_bini" class="btn btn-outline" target="_blank" rel="noopener noreferrer" id="orderTelegramBtn">Telegram Order</a>
+            </div>
+          </div>
+
+          <div class="chatbot-side-card bug-card">
+            <h2>Bug / Kendala Website</h2>
+            <p>Kalau website error atau ada fitur yang tidak jalan, hubungi developer/owner.</p>
+            <div class="side-contact-list">
+              <span>WhatsApp Developer: <strong>6285943502869</strong></span>
+              <span>Telegram Developer: <strong>@Lizz12087</strong></span>
+            </div>
+            <div class="side-actions">
+              <a href="https://wa.me/6285943502869?text=Halo%20Developer%20ALIZZ%20STORE%2C%20saya%20menemukan%20bug%2Fkendala%20di%20website.%20Bisa%20dibantu%3F" class="btn btn-outline" target="_blank" rel="noopener noreferrer" id="developerWhatsAppBtn">Chat Developer</a>
+              <a href="https://t.me/Lizz12087" class="btn btn-outline" target="_blank" rel="noopener noreferrer" id="developerTelegramBtn">Telegram Dev</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer chatbot-footer">
+    <div class="container footer-grid">
+      <div>
+        <a href="/" class="brand">
+          <span class="brand-logo brand-avatar">
+            <img src="/alizz-pp.jpg" alt="ALIZZ STORE Profile" />
+          </span>
+          <span class="brand-text">
+            <span class="brand-title-row">
+              <strong>ALIZZ STORE</strong>
+              <span class="verified-badge" aria-label="Terverifikasi" title="Terverifikasi">
+                <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" fill="#3b82f6" />
+                  <path d="M7.25 12.2l3.05 3.05 6.45-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+            </span>
+            <small>ASISTEN STORE</small>
+          </span>
+        </a>
+        <p>Asisten rule-based lokal untuk bantu pengunjung ALIZZ STORE.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/produk/">Produk</a>
+        <a href="/chatbot/">Asisten Store</a>
+        <a href="/admin/">Admin</a>
+      </div>
+      <div class="footer-contact"><span>WhatsApp Order</span><strong>6281914401217</strong></div>
+    </div>
+    <div class="container copyright">© <span id="yearNow"></span> ALIZZ STORE. All rights reserved.</div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>

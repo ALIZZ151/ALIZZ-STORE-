@@ -3536,3 +3536,21 @@ body[data-page="produk"] .product-card {
     height: 44px !important;
   }
 }
+
+/* ===== ALIZZ HOTFIX: WhatsApp icon image for developer widget ===== */
+.wa-dev-avatar,
+.wa-dev-toggle-icon {
+  overflow: hidden;
+}
+
+.wa-dev-avatar img,
+.wa-dev-toggle-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wa-dev-toggle-icon img {
+  border-radius: inherit;
+}

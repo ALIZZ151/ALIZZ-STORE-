@@ -12,6 +12,7 @@
   const GENERAL_ORDER_MESSAGE = "Halo admin ALIZZ STORE, saya mau order produk digital. Bisa dibantu?";
   const GENERAL_DEV_MESSAGE = "Halo Developer ALIZZ STORE, saya mau tanya/konsultasi soal website. Bisa dibantu?";
   const BUG_REPORT_MESSAGE = "Halo Developer ALIZZ STORE, saya menemukan bug/kendala di website. Bisa dibantu?";
+  const WHATSAPP_ICON_PATH = "/demo/whatsapp-icon.jpg";
   const OUT_OF_SCOPE_MESSAGE = "Maaf kak, aku cuma bisa bantu soal ALIZZ STORE, produk, order, panel, bot, script, dan kontak admin ya.";
   const UNKNOWN_FALLBACK_MESSAGE = "Maaf kak, aku belum nangkep maksudnya. Coba pilih menu di bawah ya: Produk, Harga Panel, Cara Order, Garansi, atau Kontak Admin.";
 
@@ -177,7 +178,7 @@
     const avatar = document.createElement("div");
     avatar.className = "wa-dev-avatar";
     avatar.setAttribute("aria-hidden", "true");
-    avatar.textContent = "WA";
+    avatar.innerHTML = `<img src="${WHATSAPP_ICON_PATH}" alt="WhatsApp" loading="lazy">`;
 
     const titleWrap = document.createElement("div");
     titleWrap.className = "wa-dev-title";
@@ -240,7 +241,7 @@
     toggle.setAttribute("aria-expanded", "false");
     toggle.setAttribute("aria-label", "Buka chat WhatsApp Developer ALIZZ");
     toggle.innerHTML = [
-      '<span class="wa-dev-toggle-icon" aria-hidden="true">WA</span>',
+      '<span class="wa-dev-toggle-icon" aria-hidden="true"><img src="' + WHATSAPP_ICON_PATH + '" alt="" loading="lazy"></span>',
       '<span class="wa-dev-toggle-content">',
       '  <strong>Developer</strong>',
       '  <small><i aria-hidden="true"></i> WhatsApp</small>',

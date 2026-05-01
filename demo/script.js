@@ -572,8 +572,10 @@
     if (!publicKey) return null;
 
     const registration = await navigator.serviceWorker.register("/service-worker.js", { scope: "/" });
-    const existing = await registration.pushManager.getSubscription();
-    const subscription = existing || await registration.pushManager.subscribe({
+    await registration.update().catch(function () {});
+    const readyRegistration = await navigator.serviceWorker.ready;
+    const existing = await readyRegistration.pushManager.getSubscription();
+    const subscription = existing || await readyRegistration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey)
     });

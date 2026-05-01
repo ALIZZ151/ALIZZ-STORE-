@@ -1,6 +1,7 @@
 (function () {
   let products = [];
   let activeCategory = "Semua";
+  const viewedProductIds = new Set();
 
   document.addEventListener("DOMContentLoaded", function () {
     if (document.body.dataset.page !== "produk") return;
@@ -62,7 +63,10 @@
 
   function setupContactButtons() {
     document.querySelectorAll(".js-chat-admin").forEach(function (button) {
-      button.addEventListener("click", openGeneralWhatsApp);
+      button.addEventListener("click", function () {
+        trackAnalytics("order_whatsapp_click", { source: "produk_chat_admin" });
+        openGeneralWhatsApp();
+      });
     });
 
     document.querySelectorAll(".js-copy-dana").forEach(function (button) {
@@ -135,6 +139,7 @@
     }
 
     bindOrderButtons();
+    observeProductViews();
   }
 
   function createCategorySection(category, items) {
@@ -164,7 +169,7 @@
     const benefits = Array.isArray(product.benefits) ? product.benefits.slice(0, 5) : [];
 
     return `
-      <article class="product-card ${soldout ? "soldout" : ""}">
+      <article class="product-card ${soldout ? "soldout" : ""}" data-product-id="${escapeHTML(product.id)}" data-product-name="${escapeHTML(product.name)}" data-product-category="${escapeHTML(category)}">
         <div class="product-top">
           <span class="product-badge ${meta.badgeClass}">${escapeHTML(category)}</span>
           <span class="product-status ${soldout ? "soldout" : "available"}">
@@ -207,11 +212,68 @@
 
         if (!product || !window.ALIZZ_STORE.isAvailable(product)) return;
 
+        trackAnalytics("order_whatsapp_click", {
+          source: "product_card",
+          productId: product.id,
+          productName: product.name,
+          productCategory: window.ALIZZ_STORE.normalizeCategory(product.category),
+          productPrice: product.price
+        });
+
         const message = `Halo admin ALIZZ STORE, saya mau order ${product.name} dengan harga ${product.price}. Apakah masih tersedia?`;
         window.open(`https://wa.me/${window.ALIZZ_STORE.WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
       });
     });
   }
+
+  function observeProductViews() {
+    const cards = Array.from(document.querySelectorAll(".product-card[data-product-id]"));
+    if (!cards.length) return;
+
+    if (!("IntersectionObserver" in window)) {
+      cards.slice(0, 8).forEach(function (card) {
+        trackProductViewFromCard(card);
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.45) return;
+        trackProductViewFromCard(entry.target);
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: [0.45] });
+
+    cards.forEach(function (card) {
+      const id = card.dataset.productId;
+      if (!id || viewedProductIds.has(id)) return;
+      observer.observe(card);
+    });
+  }
+
+  function trackProductViewFromCard(card) {
+    if (!card || !card.dataset) return;
+    const id = card.dataset.productId;
+    if (!id || viewedProductIds.has(id)) return;
+    viewedProductIds.add(id);
+
+    trackAnalytics("product_view", {
+      source: "catalog_card_visible",
+      productId: id,
+      productName: card.dataset.productName || "",
+      productCategory: card.dataset.productCategory || ""
+    });
+  }
+
+  function trackAnalytics(eventName, metadata) {
+    try {
+      if (window.ALIZZ_ANALYTICS && typeof window.ALIZZ_ANALYTICS.track === "function") {
+        window.ALIZZ_ANALYTICS.track(eventName, metadata || {});
+      }
+    } catch (error) {}
+  }
+
 
   function openGeneralWhatsApp() {
     const message = "Halo admin ALIZZ STORE, saya mau order produk digital. Bisa dibantu?";

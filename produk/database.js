@@ -1,6 +1,12 @@
 (function () {
   const STORAGE_KEY = "alizz_store_products";
-  const WHATSAPP_NUMBER = "6285922199847";
+  const BACKUP_KEY = "alizz_store_products_backup_v1";
+  const STORAGE_VERSION = 2;
+
+  const WHATSAPP_NUMBER = "6281914401217";
+  const TELEGRAM_USERNAME = "my_bini";
+  const DEVELOPER_WHATSAPP_NUMBER = "6285943502869";
+  const DEVELOPER_TELEGRAM_USERNAME = "Lizz12087";
   const DANA_NUMBER = "085943502869";
 
   const CATEGORY_ORDER = ["Panel", "Membership", "Sewa Bot", "Script", "Lainnya"];
@@ -250,42 +256,227 @@
     return JSON.parse(JSON.stringify(data));
   }
 
-  function getProducts() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (error) {}
+  function storageAvailable() {
+    try {
+      const testKey = "__alizz_storage_test__";
+      localStorage.setItem(testKey, "1");
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      return false;
     }
-
-    const initial = clone(INITIAL_PRODUCTS);
-    saveProducts(initial);
-    return initial;
   }
 
-  function saveProducts(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  function createProductId(name, fallbackIndex) {
+    const base = sanitizeText(name, 90)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    return base || `produk-${Date.now()}-${fallbackIndex || 0}`;
   }
 
-  function resetProducts() {
-    const initial = clone(INITIAL_PRODUCTS);
-    saveProducts(initial);
-    return initial;
+  function sanitizeText(value, maxLength) {
+    const limit = Number(maxLength) > 0 ? Number(maxLength) : 500;
+    return String(value == null ? "" : value)
+      .replace(/[\u0000-\u001F\u007F]/g, " ")
+      .replace(/[<>]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, limit);
+  }
+
+  function sanitizeBenefit(value) {
+    return sanitizeText(value, 120);
   }
 
   function normalizeCategory(category) {
-    if (CATEGORY_ORDER.includes(category)) return category;
+    const cleaned = sanitizeText(category, 40);
+    if (CATEGORY_ORDER.includes(cleaned)) return cleaned;
+
+    const lower = cleaned.toLowerCase();
+    if (lower.includes("panel") || lower.includes("pterodactyl")) return "Panel";
+    if (lower.includes("member") || lower.includes("reseller") || lower.includes("adp")) return "Membership";
+    if (lower.includes("sewa") || lower.includes("bot")) return "Sewa Bot";
+    if (lower.includes("script") || lower === "sc") return "Script";
     return "Lainnya";
   }
 
+  function sanitizeProduct(product, index) {
+    const item = product && typeof product === "object" ? product : {};
+    const stockNumber = Number(item.stock);
+    const stock = Number.isFinite(stockNumber) ? Math.max(0, Math.floor(stockNumber)) : 0;
+    const name = sanitizeText(item.name, 120);
+    const price = sanitizeText(item.price, 80);
+    const description = sanitizeText(item.description, 420);
+    const benefits = Array.isArray(item.benefits)
+      ? item.benefits.map(sanitizeBenefit).filter(Boolean).slice(0, 12)
+      : [];
+
+    const status = item.status === "soldout" || stock <= 0 ? "soldout" : "available";
+
+    return {
+      id: sanitizeText(item.id, 120) || createProductId(name, index),
+      name,
+      category: normalizeCategory(item.category),
+      price,
+      stock,
+      status,
+      description,
+      benefits
+    };
+  }
+
+  function isValidProduct(product) {
+    return Boolean(
+      product &&
+      typeof product === "object" &&
+      product.id &&
+      product.name &&
+      product.category &&
+      product.price &&
+      Number.isFinite(Number(product.stock)) &&
+      (product.status === "available" || product.status === "soldout") &&
+      product.description &&
+      Array.isArray(product.benefits)
+    );
+  }
+
+  function sanitizeProducts(products) {
+    if (!Array.isArray(products)) return [];
+
+    const usedIds = new Set();
+    return products
+      .map(function (product, index) {
+        const sanitized = sanitizeProduct(product, index);
+        if (!isValidProduct(sanitized)) return null;
+
+        let uniqueId = sanitized.id;
+        let counter = 1;
+        while (usedIds.has(uniqueId)) {
+          uniqueId = `${sanitized.id}-${counter}`;
+          counter += 1;
+        }
+
+        usedIds.add(uniqueId);
+        sanitized.id = uniqueId;
+        return sanitized;
+      })
+      .filter(Boolean);
+  }
+
+  function createStorageEnvelope(products) {
+    return {
+      storageVersion: STORAGE_VERSION,
+      updatedAt: new Date().toISOString(),
+      products: sanitizeProducts(products)
+    };
+  }
+
+  function parseStoredProducts(raw) {
+    if (!raw) return { ok: false, products: [], legacy: false };
+
+    try {
+      const parsed = JSON.parse(raw);
+      const legacy = Array.isArray(parsed);
+      const productsSource = legacy ? parsed : parsed && parsed.products;
+      const products = sanitizeProducts(productsSource);
+      const sourceLength = Array.isArray(productsSource) ? productsSource.length : 0;
+
+      if (!Array.isArray(productsSource)) {
+        return { ok: false, products: [], legacy };
+      }
+
+      if (sourceLength > 0 && products.length === 0) {
+        return { ok: false, products: [], legacy };
+      }
+
+      return { ok: true, products, legacy };
+    } catch (error) {
+      return { ok: false, products: [], legacy: false };
+    }
+  }
+
+  function readProductsFromKey(key) {
+    if (!storageAvailable()) return { ok: false, products: [] };
+    return parseStoredProducts(localStorage.getItem(key));
+  }
+
+  function writeProductsToKey(key, products) {
+    if (!storageAvailable()) return false;
+
+    try {
+      localStorage.setItem(key, JSON.stringify(createStorageEnvelope(products)));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function backupCurrentProducts() {
+    const current = readProductsFromKey(STORAGE_KEY);
+    if (current.ok) {
+      writeProductsToKey(BACKUP_KEY, current.products);
+    }
+  }
+
+  function getProducts() {
+    const current = readProductsFromKey(STORAGE_KEY);
+
+    if (current.ok) {
+      if (current.legacy) {
+        writeProductsToKey(STORAGE_KEY, current.products);
+      }
+      return clone(current.products);
+    }
+
+    const backup = readProductsFromKey(BACKUP_KEY);
+    if (backup.ok) {
+      writeProductsToKey(STORAGE_KEY, backup.products);
+      return clone(backup.products);
+    }
+
+    const initial = sanitizeProducts(INITIAL_PRODUCTS);
+    writeProductsToKey(STORAGE_KEY, initial);
+    return clone(initial);
+  }
+
+  function saveProducts(data) {
+    const sanitized = sanitizeProducts(data);
+    const originalLength = Array.isArray(data) ? data.length : 0;
+
+    if (!Array.isArray(data) || (originalLength > 0 && sanitized.length === 0)) {
+      return false;
+    }
+
+    backupCurrentProducts();
+    return writeProductsToKey(STORAGE_KEY, sanitized);
+  }
+
+  function resetProducts() {
+    const initial = sanitizeProducts(INITIAL_PRODUCTS);
+    backupCurrentProducts();
+    writeProductsToKey(STORAGE_KEY, initial);
+    return clone(initial);
+  }
+
+  function recoverProductsFromBackup() {
+    const backup = readProductsFromKey(BACKUP_KEY);
+    if (!backup.ok) return getProducts();
+
+    writeProductsToKey(STORAGE_KEY, backup.products);
+    return clone(backup.products);
+  }
+
   function isAvailable(product) {
-    return product.status === "available" && Number(product.stock) > 0;
+    const sanitized = sanitizeProduct(product, 0);
+    return sanitized.status === "available" && Number(sanitized.stock) > 0;
   }
 
   function escapeHTML(value) {
-    return String(value)
+    return String(value == null ? "" : value)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
@@ -295,14 +486,22 @@
 
   window.ALIZZ_STORE = {
     WHATSAPP_NUMBER,
+    TELEGRAM_USERNAME,
+    DEVELOPER_WHATSAPP_NUMBER,
+    DEVELOPER_TELEGRAM_USERNAME,
     DANA_NUMBER,
     STORAGE_KEY,
+    BACKUP_KEY,
+    STORAGE_VERSION,
     CATEGORY_ORDER,
     CATEGORY_META,
     INITIAL_PRODUCTS,
     getProducts,
     saveProducts,
     resetProducts,
+    recoverProductsFromBackup,
+    sanitizeProduct,
+    sanitizeProducts,
     normalizeCategory,
     isAvailable,
     escapeHTML

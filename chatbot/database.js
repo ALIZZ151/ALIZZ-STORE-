@@ -1,7 +1,9 @@
 (function () {
+  "use strict";
+
   const CHAT_STORAGE_KEY = "alizz_chatbot_session_v1";
   const CHAT_STORAGE_VERSION = 1;
-  const MAX_MESSAGES = 90;
+  const MAX_MESSAGES = 100;
 
   function storageAvailable() {
     try {
@@ -23,16 +25,38 @@
       .slice(0, limit);
   }
 
+  function containsSensitiveText(text) {
+    const normalized = sanitizeText(text, 1400).toLowerCase();
+    const sensitiveWords = [
+      "password",
+      "passwd",
+      "token",
+      "cookie",
+      "secret",
+      "api key",
+      "apikey",
+      "otp",
+      "pin login",
+      "session",
+      "auth"
+    ];
+
+    return sensitiveWords.some(function (word) {
+      return normalized.includes(word);
+    });
+  }
+
   function sanitizeAction(action) {
     if (!action || typeof action !== "object") return null;
 
     const label = sanitizeText(action.label, 60);
-    const url = sanitizeText(action.url, 600);
-    const type = ["link", "reply"].includes(action.type) ? action.type : "link";
+    const rawType = sanitizeText(action.type, 20);
+    const type = ["link", "reply"].includes(rawType) ? rawType : "link";
+    const url = sanitizeText(action.url, 700);
     const value = sanitizeText(action.value, 180);
 
     if (!label) return null;
-    if (type === "link" && !/^https:\/\//i.test(url)) return null;
+    if (type === "link" && !/^https:\/\//i.test(url) && !url.startsWith("/")) return null;
     if (type === "reply" && !value) return null;
 
     return { label, type, url, value };
@@ -42,14 +66,15 @@
     if (!message || typeof message !== "object") return null;
 
     const role = message.role === "user" ? "user" : "bot";
-    const text = sanitizeText(message.text, 1200);
+    const text = sanitizeText(message.text, 1600);
     const timestamp = Number(message.timestamp);
-    const id = sanitizeText(message.id, 80) || `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = sanitizeText(message.id, 90) || `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const actions = Array.isArray(message.actions)
       ? message.actions.map(sanitizeAction).filter(Boolean).slice(0, 6)
       : [];
 
     if (!text) return null;
+    if (role === "user" && containsSensitiveText(text)) return null;
 
     return {
       id,
@@ -81,6 +106,11 @@
       if (!raw) return [];
 
       const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") {
+        clearMessages();
+        return [];
+      }
+
       return normalizeMessages(parsed);
     } catch (error) {
       clearMessages();
@@ -133,7 +163,8 @@
     MAX_MESSAGES,
     getMessages,
     saveMessages,
+    addMessage,
     clearMessages,
-    addMessage
+    sanitizeMessage
   };
 })();

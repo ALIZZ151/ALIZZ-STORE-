@@ -31,8 +31,9 @@ async function sendBroadcast(payload, source = "admin") {
   const title = sanitizeString(payload.title, 120);
   const body = sanitizeString(payload.body, 240);
   const targetUrl = sanitizeUrl(payload.url || payload.target_url || "/produk/", 700) || "/produk/";
-  const iconUrl = sanitizeUrl(payload.icon_url || payload.iconUrl || "/alizz-pp.jpg", 700) || "/alizz-pp.jpg";
-  const imageUrl = sanitizeUrl(payload.image_url || payload.imageUrl || "", 700) || null;
+  const siteUrl = String(process.env.SITE_URL || "https://alizz-shop.biz.id").replace(/\/$/, "");
+  const iconUrl = sanitizeUrl(payload.icon_url || payload.iconUrl || siteUrl + "/alizz-pp.jpg", 700) || siteUrl + "/alizz-pp.jpg";
+  const imageUrl = sanitizeUrl(payload.image_url || payload.imageUrl || siteUrl + "/assets/alizz-store-preview-v2.jpg", 700) || null;
 
   if (!title || !body) {
     const error = new Error("Title dan body wajib diisi.");
@@ -78,7 +79,11 @@ async function sendBroadcast(payload, source = "admin") {
           p256dh: item.p256dh,
           auth: item.auth
         }
-      }, notificationPayload);
+      }, notificationPayload, {
+        TTL: 60 * 60 * 24,
+        urgency: "high",
+        topic: "alizz-store-promo"
+      });
       sent += 1;
     } catch (error) {
       failed += 1;

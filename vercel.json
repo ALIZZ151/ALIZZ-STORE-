@@ -1,13 +1,26 @@
 {
   "redirects": [
     { "source": "/produk", "destination": "/produk/", "permanent": false },
-    { "source": "/admin", "destination": "/admin/", "permanent": false }
+    { "source": "/admin", "destination": "/admin/", "permanent": false },
+    { "source": "/chatbot", "destination": "/chatbot/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/", "destination": "/demo/index.html" },
     { "source": "/style.css", "destination": "/demo/style.css" },
     { "source": "/script.js", "destination": "/demo/script.js" },
     { "source": "/produk/", "destination": "/produk/index.html" },
-    { "source": "/admin/", "destination": "/admin/index.html" }
+    { "source": "/admin/", "destination": "/admin/index.html" },
+    { "source": "/chatbot/", "destination": "/chatbot/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
   ]
 }

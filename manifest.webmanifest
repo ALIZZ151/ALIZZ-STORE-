@@ -1,0 +1,27 @@
+{
+  "name": "ALIZZ STORE",
+  "short_name": "ALIZZ STORE",
+  "description": "Toko digital panel Pterodactyl, bot WhatsApp, script bot, dan hosting digital.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#060914",
+  "theme_color": "#060914",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/alizz-pp.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/alizz-store-preview-v2.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["shopping", "business", "utilities"],
+  "lang": "id-ID"
+}

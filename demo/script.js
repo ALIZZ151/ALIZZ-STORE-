@@ -33,6 +33,7 @@
     setupMobileMenu();
     setupContactButtons();
     setupFloatingWidgets(page);
+    setupPushNotifications(page);
 
     if (page === "chatbot") {
       setupChatbot();
@@ -405,6 +406,247 @@
     });
 
     return output;
+  }
+
+
+  function setupPushNotifications(page) {
+    if (!["demo", "produk", "chatbot"].includes(page)) return;
+    if (window.ALIZZ_PUSH_READY) return;
+    window.ALIZZ_PUSH_READY = true;
+
+    const config = {
+      sessionSkipKey: "alizz_push_prompt_skipped_session_v1",
+      localCooldownKey: "alizz_push_prompt_cooldown_until_v1",
+      subscribedKey: "alizz_push_subscribed_v1",
+      cooldownMs: 3 * 24 * 60 * 60 * 1000,
+      showDelayMs: 3200
+    };
+
+    if (!isPushSupported()) return;
+
+    if (Notification.permission === "granted") {
+      window.setTimeout(function () {
+        ensurePushSubscription({ silent: true });
+      }, 1200);
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      safeStorageSet(localStorage, config.localCooldownKey, String(Date.now() + config.cooldownMs));
+      return;
+    }
+
+    if (safeStorageGet(sessionStorage, config.sessionSkipKey) === "1") return;
+
+    const cooldownUntil = Number(safeStorageGet(localStorage, config.localCooldownKey) || 0);
+    if (cooldownUntil && cooldownUntil > Date.now()) return;
+
+    window.setTimeout(function () {
+      if (Notification.permission !== "default") return;
+      if (document.querySelector("#alizzPushPrompt")) return;
+      renderPushPrompt(config);
+    }, config.showDelayMs);
+  }
+
+  function isPushSupported() {
+    return Boolean(
+      window.isSecureContext &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window &&
+      typeof fetch === "function"
+    );
+  }
+
+  function renderPushPrompt(config) {
+    const prompt = document.createElement("section");
+    prompt.id = "alizzPushPrompt";
+    prompt.className = "push-promo-prompt";
+    prompt.setAttribute("role", "dialog");
+    prompt.setAttribute("aria-live", "polite");
+    prompt.setAttribute("aria-label", "Izin notifikasi promo ALIZZ STORE");
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "push-promo-close";
+    closeBtn.setAttribute("aria-label", "Tutup promo notifikasi");
+    closeBtn.textContent = "×";
+
+    const icon = document.createElement("div");
+    icon.className = "push-promo-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "🔔";
+
+    const content = document.createElement("div");
+    content.className = "push-promo-content";
+
+    const title = document.createElement("strong");
+    title.textContent = "Info Promo ALIZZ STORE";
+
+    const desc = document.createElement("p");
+    desc.textContent = "Mau dapet info promo panel dan produk terbaru dari ALIZZ STORE?";
+
+    const actions = document.createElement("div");
+    actions.className = "push-promo-actions";
+
+    const allowBtn = document.createElement("button");
+    allowBtn.type = "button";
+    allowBtn.className = "push-promo-btn primary";
+    allowBtn.textContent = "Izinkan Promo";
+
+    const laterBtn = document.createElement("button");
+    laterBtn.type = "button";
+    laterBtn.className = "push-promo-btn secondary";
+    laterBtn.textContent = "Nanti Aja";
+
+    actions.appendChild(allowBtn);
+    actions.appendChild(laterBtn);
+    content.appendChild(title);
+    content.appendChild(desc);
+    content.appendChild(actions);
+    prompt.appendChild(closeBtn);
+    prompt.appendChild(icon);
+    prompt.appendChild(content);
+    document.body.appendChild(prompt);
+
+    trackAnalytics("notification_prompt_shown", { source: "push_prompt" });
+
+    requestAnimationFrame(function () {
+      prompt.classList.add("is-visible");
+    });
+
+    function dismiss(reason) {
+      prompt.classList.remove("is-visible");
+      safeStorageSet(sessionStorage, config.sessionSkipKey, "1");
+      if (reason !== "granted") {
+        safeStorageSet(localStorage, config.localCooldownKey, String(Date.now() + config.cooldownMs));
+      }
+      window.setTimeout(function () {
+        prompt.remove();
+      }, 260);
+    }
+
+    closeBtn.addEventListener("click", function () {
+      trackAnalytics("notification_permission_skipped", { source: "push_prompt", action: "close" });
+      dismiss("close");
+    });
+
+    laterBtn.addEventListener("click", function () {
+      trackAnalytics("notification_permission_skipped", { source: "push_prompt", action: "later" });
+      dismiss("later");
+    });
+
+    allowBtn.addEventListener("click", async function () {
+      allowBtn.disabled = true;
+      allowBtn.textContent = "Memproses...";
+
+      try {
+        const result = await Notification.requestPermission();
+        if (result !== "granted") {
+          trackAnalytics("notification_permission_denied", { source: "push_prompt", result: result || "denied" });
+          showToast("Izin notifikasi belum aktif.");
+          dismiss("denied");
+          return;
+        }
+
+        await ensurePushSubscription({ silent: false });
+        trackAnalytics("notification_permission_granted", { source: "push_prompt" });
+        safeStorageSet(localStorage, config.subscribedKey, "1");
+        safeStorageSet(localStorage, config.localCooldownKey, String(Date.now() + 365 * 24 * 60 * 60 * 1000));
+        showToast("Notifikasi promo berhasil diaktifkan.");
+        dismiss("granted");
+      } catch (error) {
+        showToast("Gagal mengaktifkan notifikasi. Coba lagi nanti ya.");
+        allowBtn.disabled = false;
+        allowBtn.textContent = "Izinkan Promo";
+      }
+    });
+  }
+
+  async function ensurePushSubscription(options) {
+    const silent = options && options.silent;
+    if (!isPushSupported()) return null;
+    if (Notification.permission !== "granted") return null;
+
+    const publicKey = await getVapidPublicKey();
+    if (!publicKey) return null;
+
+    const registration = await navigator.serviceWorker.register("/service-worker.js", { scope: "/" });
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+
+    await savePushSubscription(subscription);
+    if (!silent) safeStorageSet(localStorage, "alizz_push_subscribed_v1", "1");
+    return subscription;
+  }
+
+  async function getVapidPublicKey() {
+    try {
+      const response = await fetch("/api/notifications/public-key", {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+        credentials: "omit",
+        cache: "no-store"
+      });
+      const data = await response.json().catch(function () { return null; });
+      if (!response.ok || !data || !data.ok || !data.publicKey) return "";
+      return String(data.publicKey);
+    } catch (error) {
+      return "";
+    }
+  }
+
+  async function savePushSubscription(subscription) {
+    const analytics = window.ALIZZ_ANALYTICS || {};
+    const payload = {
+      subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+      visitorId: analytics.visitorId || getOrCreateStoredId("alizz_visitor_id_v1", "visitor"),
+      metadata: {
+        page: getCurrentPage(),
+        source: "frontend_prompt"
+      }
+    };
+
+    const response = await fetch("/api/notifications/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "omit"
+    });
+
+    const data = await response.json().catch(function () { return null; });
+    if (!response.ok || !data || !data.ok) {
+      throw new Error("Subscription gagal disimpan.");
+    }
+    return data;
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i += 1) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  function safeStorageGet(storage, key) {
+    try {
+      return storage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function safeStorageSet(storage, key, value) {
+    try {
+      storage.setItem(key, value);
+    } catch (error) {}
   }
 
   function setupYear() {

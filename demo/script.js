@@ -27,6 +27,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     const page = getCurrentPage();
 
+    setupAnalytics(page);
     setupYear();
     setupMobileMenu();
     setupContactButtons();
@@ -97,6 +98,7 @@
       if (button.dataset.alizzContactBound === "true") return;
       button.dataset.alizzContactBound = "true";
       button.addEventListener("click", function () {
+        trackAnalytics("order_whatsapp_click", { source: "global_chat_admin", page: getCurrentPage() });
         openWhatsApp(ORDER_WHATSAPP_NUMBER, GENERAL_ORDER_MESSAGE);
       });
     });
@@ -147,6 +149,10 @@
       '  <span class="chatbot-launcher-bubble">Butuh bantuan pilih produk?</span>',
       '</span>'
     ].join("");
+
+    launcher.addEventListener("click", function () {
+      trackAnalytics("chatbot_open", { source: "floating_launcher" });
+    });
 
     stack.appendChild(launcher);
   }
@@ -208,6 +214,9 @@
     chatLink.target = "_blank";
     chatLink.rel = "noopener noreferrer";
     chatLink.textContent = "Chat Developer";
+    chatLink.addEventListener("click", function () {
+      trackAnalytics("developer_whatsapp_click", { source: "floating_widget", action: "general" });
+    });
 
     const bugLink = document.createElement("a");
     bugLink.className = "wa-dev-action secondary";
@@ -215,6 +224,9 @@
     bugLink.target = "_blank";
     bugLink.rel = "noopener noreferrer";
     bugLink.textContent = "Laporkan Bug";
+    bugLink.addEventListener("click", function () {
+      trackAnalytics("developer_whatsapp_click", { source: "floating_widget", action: "bug_report" });
+    });
 
     actions.appendChild(chatLink);
     actions.appendChild(bugLink);
@@ -275,6 +287,125 @@
     stack.appendChild(widget);
   }
 
+  function setupAnalytics(page) {
+    if (window.ALIZZ_ANALYTICS && window.ALIZZ_ANALYTICS.ready) return;
+
+    const visitorId = getOrCreateStoredId("alizz_visitor_id_v1", "visitor");
+    const sessionId = getOrCreateSessionId();
+
+    window.ALIZZ_ANALYTICS = {
+      ready: true,
+      visitorId: visitorId,
+      sessionId: sessionId,
+      track: trackAnalytics
+    };
+
+    window.setTimeout(function () {
+      trackAnalytics("page_view", {
+        page: page,
+        title: document.title || "ALIZZ STORE"
+      });
+    }, 350);
+  }
+
+  function getOrCreateStoredId(key, prefix) {
+    try {
+      const existing = localStorage.getItem(key);
+      if (existing && existing.length >= 12) return existing;
+      const next = prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem(key, next);
+      return next;
+    } catch (error) {
+      return prefix + "-memory-" + Date.now() + "-" + Math.random().toString(36).slice(2, 12);
+    }
+  }
+
+  function getOrCreateSessionId() {
+    try {
+      const key = "alizz_session_id_v1";
+      const existing = sessionStorage.getItem(key);
+      if (existing && existing.length >= 12) return existing;
+      const next = "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 12);
+      sessionStorage.setItem(key, next);
+      return next;
+    } catch (error) {
+      return "session-memory-" + Date.now() + "-" + Math.random().toString(36).slice(2, 12);
+    }
+  }
+
+  function trackAnalytics(eventName, metadata) {
+    const allowed = [
+      "page_view",
+      "product_view",
+      "order_whatsapp_click",
+      "order_telegram_click",
+      "developer_whatsapp_click",
+      "testimonial_channel_click",
+      "notification_prompt_shown",
+      "notification_permission_granted",
+      "notification_permission_denied",
+      "notification_permission_skipped",
+      "chatbot_open",
+      "voucher_apply",
+      "promo_popup_click"
+    ];
+
+    if (!allowed.includes(eventName)) return;
+
+    const analytics = window.ALIZZ_ANALYTICS || {};
+    const payload = {
+      eventName: eventName,
+      visitorId: analytics.visitorId || getOrCreateStoredId("alizz_visitor_id_v1", "visitor"),
+      sessionId: analytics.sessionId || getOrCreateSessionId(),
+      pagePath: window.location.pathname || "/",
+      pageUrl: window.location.href || "",
+      referrer: document.referrer || "",
+      metadata: sanitizeAnalyticsMetadata(metadata || {})
+    };
+
+    if (payload.metadata.productId) payload.productId = payload.metadata.productId;
+    if (payload.metadata.productName) payload.productName = payload.metadata.productName;
+    if (payload.metadata.productCategory) payload.productCategory = payload.metadata.productCategory;
+
+    const json = JSON.stringify(payload);
+
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([json], { type: "application/json" });
+        const sent = navigator.sendBeacon("/api/analytics/track", blob);
+        if (sent) return;
+      }
+    } catch (error) {}
+
+    try {
+      fetch("/api/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: json,
+        credentials: "omit",
+        keepalive: true
+      }).catch(function () {});
+    } catch (error) {}
+  }
+
+  function sanitizeAnalyticsMetadata(input) {
+    const output = {};
+    if (!input || typeof input !== "object") return output;
+
+    Object.keys(input).slice(0, 20).forEach(function (key) {
+      const safeKey = sanitizePlainText(key, 60).replace(/[^a-zA-Z0-9_.-]/g, "");
+      if (!safeKey) return;
+      const lower = safeKey.toLowerCase();
+      if (["password", "token", "cookie", "secret", "otp", "pin"].some(function (word) { return lower.includes(word); })) return;
+      const value = input[key];
+      if (value == null) output[safeKey] = null;
+      else if (["string", "number", "boolean"].includes(typeof value)) output[safeKey] = typeof value === "string" ? sanitizePlainText(value, 220) : value;
+      else output[safeKey] = sanitizePlainText(JSON.stringify(value), 300);
+    });
+
+    return output;
+  }
+
   function setupYear() {
     const yearNow = document.querySelector("#yearNow");
     if (yearNow) yearNow.textContent = new Date().getFullYear();
@@ -288,6 +419,7 @@
     const clearBtn = document.querySelector("#clearChatBtn");
 
     if (!messagesEl || !form || !input || !quickRepliesEl) return;
+    trackAnalytics("chatbot_open", { source: "chatbot_page" });
     if (form.dataset.alizzChatBound === "true") return;
     form.dataset.alizzChatBound = "true";
 
@@ -654,7 +786,7 @@
     if (fuzzy) return fuzzy;
 
     if (hasAny(text, ["hapus chat", "clear chat", "reset chat", "bersihin chat"])) return "clear";
-    if (hasAny(text, ["halo", "hai", "hello", "helo", "min", "kak", "assalam", "pagi", "siang", "sore", "malam"])) return "greeting";
+    if (hasAny(text, ["halo", "hallo", "hello", "helo", "hai", "hi", "hey", "min", "admin", "kak", "gan", "bang", "assalam", "pagi", "siang", "sore", "malam"])) return "greeting";
     if (hasAny(text, ["apa itu alizz", "tentang alizz", "alizz store itu", "siapa alizz", "store apa", "ini toko apa"])) return "about";
     if (hasAny(text, ["bug", "kendala website", "error website", "website error", "web error", "lapor bug", "fitur rusak", "website rusak"])) return "bug";
     if (hasAny(text, ["developer", "dev", "owner", "pemilik", "kontak owner", "hubungi owner", "admin web"])) return "developer";
@@ -681,6 +813,7 @@
     if (!clean || clean.length > 45) return "";
 
     const samples = [
+      { intent: "greeting", words: ["halo", "hallo", "hello", "hai kak", "min"] },
       { intent: "products", words: ["produk apa aja", "list produk", "katalog produk"] },
       { intent: "panel_price", words: ["harga panel", "panel berapa", "list panel"] },
       { intent: "order", words: ["cara order", "cara beli", "mau order"] },

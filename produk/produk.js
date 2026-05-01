@@ -5,81 +5,19 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     if (document.body.dataset.page !== "produk") return;
+    if (!window.ALIZZ_STORE || typeof window.ALIZZ_STORE.getProducts !== "function") return;
 
     products = window.ALIZZ_STORE.getProducts();
-
-    setupMobileMenu();
-    setupContactButtons();
     setupCatalog();
     setupYear();
     renderCatalog();
   });
 
-  function setupMobileMenu() {
-    const hamburgerBtn = document.querySelector("#hamburgerBtn");
-    const mobileMenu = document.querySelector("#mobileMenu");
-    const mobileOverlay = document.querySelector("#mobileOverlay");
-    const mobileCloseBtn = document.querySelector("#mobileCloseBtn");
-
-    if (!hamburgerBtn || !mobileMenu || !mobileOverlay) return;
-
-    function openMenu() {
-      hamburgerBtn.classList.add("is-active");
-      hamburgerBtn.setAttribute("aria-expanded", "true");
-      mobileMenu.classList.add("is-open");
-      mobileMenu.setAttribute("aria-hidden", "false");
-      mobileOverlay.classList.add("is-open");
-      document.body.classList.add("no-scroll");
-    }
-
-    function closeMenu() {
-      hamburgerBtn.classList.remove("is-active");
-      hamburgerBtn.setAttribute("aria-expanded", "false");
-      mobileMenu.classList.remove("is-open");
-      mobileMenu.setAttribute("aria-hidden", "true");
-      mobileOverlay.classList.remove("is-open");
-      document.body.classList.remove("no-scroll");
-    }
-
-    hamburgerBtn.addEventListener("click", function () {
-      if (mobileMenu.classList.contains("is-open")) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
-    });
-
-    mobileOverlay.addEventListener("click", closeMenu);
-    if (mobileCloseBtn) mobileCloseBtn.addEventListener("click", closeMenu);
-
-    mobileMenu.querySelectorAll("a").forEach(function (link) {
-      link.addEventListener("click", closeMenu);
-    });
-
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") closeMenu();
-    });
-  }
-
-  function setupContactButtons() {
-    document.querySelectorAll(".js-chat-admin").forEach(function (button) {
-      button.addEventListener("click", function () {
-        trackAnalytics("order_whatsapp_click", { source: "produk_chat_admin" });
-        openGeneralWhatsApp();
-      });
-    });
-
-    document.querySelectorAll(".js-copy-dana").forEach(function (button) {
-      button.addEventListener("click", async function () {
-        await copyText(window.ALIZZ_STORE.DANA_NUMBER);
-        showToast("Nomor DANA berhasil disalin.");
-      });
-    });
-  }
 
   function setupCatalog() {
     const searchInput = document.querySelector("#searchInput");
     const filterTabs = document.querySelector("#filterTabs");
+    if (!searchInput || !filterTabs) return;
 
     searchInput.addEventListener("input", renderCatalog);
 
@@ -104,6 +42,7 @@
     const container = document.querySelector("#categorySections");
     const emptyState = document.querySelector("#emptyState");
     const searchInput = document.querySelector("#searchInput");
+    if (!container || !emptyState || !searchInput) return;
     const keyword = searchInput.value.trim().toLowerCase();
     const categories = activeCategory === "Semua" ? window.ALIZZ_STORE.CATEGORY_ORDER : [activeCategory];
 

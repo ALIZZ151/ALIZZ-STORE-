@@ -277,8 +277,8 @@
       '  </div>',
       '</section>',
       '<section class="admin-panel" id="orders-admin">',
-      '  <div class="panel-title"><div><h2>Order QRIS Zakki</h2><p>Monitoring order auto-payment. Password panel tidak pernah ditampilkan atau disimpan.</p></div><button class="btn btn-outline btn-sm" id="refreshOrdersBtn" type="button">Refresh Order</button></div>',
-      '  <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Produk</th><th>Kategori</th><th>Rank</th><th>Amount</th><th>Total Zakki</th><th>Payment</th><th>Fulfillment</th><th>Status</th><th>Dibuat</th><th>Paid</th><th>Fulfilled</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody id="ordersTableBody"><tr><td colspan="14">Memuat...</td></tr></tbody></table></div>',
+      '  <div class="panel-title"><div><h2>Order QRIS Zakki</h2><p>Monitoring order auto-payment. Password panel tidak pernah ditampilkan ke admin. Kredensial user hanya bisa dibuka pembeli dengan token order valid.</p></div><button class="btn btn-outline btn-sm" id="refreshOrdersBtn" type="button">Refresh Order</button></div>',
+      '  <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Produk</th><th>Tipe</th><th>Plan</th><th>Rank</th><th>Amount</th><th>Total Zakki</th><th>Payment</th><th>Fulfillment</th><th>Status</th><th>Dibuat</th><th>Paid</th><th>Fulfilled</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody id="ordersTableBody"><tr><td colspan="15">Memuat...</td></tr></tbody></table></div>',
       '</section>'
     ].join(""));
 
@@ -345,14 +345,14 @@
   async function loadOrdersDashboard() {
     if (!isAdminAuthenticated) return;
     const body = document.querySelector("#ordersTableBody");
-    if (body) body.innerHTML = '<tr><td colspan="14">Memuat order...</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="15">Memuat order...</td></tr>';
     try {
       const response = await fetch("/api/admin/orders", { method: "GET", credentials: "same-origin", cache: "no-store" });
       const result = await safeJson(response);
       if (!response.ok || !result.ok) throw new Error(result.message || "Gagal memuat order.");
       renderOrdersTable(result.orders || []);
     } catch (error) {
-      if (body) body.innerHTML = '<tr><td colspan="14">' + escapeHTML(error.message || "Gagal memuat order.") + '</td></tr>';
+      if (body) body.innerHTML = '<tr><td colspan="15">' + escapeHTML(error.message || "Gagal memuat order.") + '</td></tr>';
     }
   }
 
@@ -360,7 +360,7 @@
     const body = document.querySelector("#ordersTableBody");
     if (!body) return;
     if (!orders.length) {
-      body.innerHTML = '<tr><td colspan="14">Belum ada order QRIS.</td></tr>';
+      body.innerHTML = '<tr><td colspan="15">Belum ada order QRIS.</td></tr>';
       return;
     }
     body.innerHTML = orders.map(function (order) {
@@ -369,7 +369,8 @@
         '<tr>',
         '<td data-label="Kode"><strong>' + escapeHTML(order.public_code || "-") + '</strong></td>',
         '<td data-label="Produk">' + escapeHTML(order.product_name || "-") + '</td>',
-        '<td data-label="Kategori">' + escapeHTML(order.product_category || "-") + '</td>',
+        '<td data-label="Tipe">' + escapeHTML(order.product_type || "-") + '</td>',
+        '<td data-label="Plan">' + escapeHTML(order.selected_plan || "-") + '</td>',
         '<td data-label="Rank">' + escapeHTML(order.selected_rank || "-") + '</td>',
         '<td data-label="Amount">Rp' + formatNumber(order.amount) + '</td>',
         '<td data-label="Total Zakki">' + (order.zakki_total_bayar ? 'Rp' + formatNumber(order.zakki_total_bayar) : '-') + '</td>',

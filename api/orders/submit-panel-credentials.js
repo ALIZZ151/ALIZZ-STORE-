@@ -1,7 +1,7 @@
 const { json, methodNotAllowed } = require("../../lib/auth");
 const { readJsonBody, sanitizeString, selectRows, updateRows } = require("../../lib/supabase");
 const { getClientIp, checkRequestRateLimit } = require("../../lib/rateLimit");
-const { verifyRecoveryToken } = require("../../lib/orderSecurity");
+const { verifyRecoveryToken, encryptPanelCredentials, decryptPanelCredentials } = require("../../lib/orderSecurity");
 const { createPterodactylUser, createPterodactylServer, assertPterodactylServerConfig, safePterodactylError } = require("../../lib/pterodactyl");
 const { addOrderEvent, publicOrderPayload } = require("../../lib/orderFlow");
 
@@ -20,6 +20,10 @@ function rateLimit(req, res) {
 
 function safePanelId(value) {
   return value == null ? null : String(value).slice(0, 80);
+}
+
+function safeDomain() {
+  return process.env.PTERODACTYL_DOMAIN || null;
 }
 
 module.exports = async function handler(req, res) {
@@ -50,30 +54,34 @@ module.exports = async function handler(req, res) {
   let order = rows[0];
 
   if (!order || !verifyRecoveryToken(token, order.recovery_token_hash)) {
-    return json(res, 401, { success: false, message: "Order tidak ditemukan atau token recovery salah." });
+    return json(res, 403, { success: false, message: "Order tidak ditemukan atau token recovery salah." });
   }
 
   if (order.payment_status !== "paid") {
     return json(res, 409, { success: false, message: "Pembayaran belum terverifikasi." });
   }
 
-  if (order.product_category !== "Panel") {
+  if (order.product_type !== "panel") {
     return json(res, 400, { success: false, message: "Order ini bukan produk Panel." });
   }
 
   if (order.panel_server_id || order.fulfillment_status === "fulfilled") {
+    const credentials = decryptPanelCredentials(order);
     return json(res, 200, {
       success: true,
       idempotent: true,
       order: publicOrderPayload(order),
       panel: {
-        domain: process.env.PTERODACTYL_DOMAIN || null,
-        username: order.customer_username || username,
-        password: null,
-        password_available: false,
+        domain: safeDomain() || credentials?.domain || null,
+        username: credentials?.username || order.customer_username || username,
+        password: credentials?.password || null,
+        password_available: Boolean(credentials?.password),
+        package: credentials?.package || order.product_name,
         panel_user_id: order.panel_user_id || null,
         panel_server_id: order.panel_server_id || null,
-        warning: "Panel sudah pernah dibuat. Password tidak disimpan oleh sistem."
+        warning: credentials?.password
+          ? "Panel sudah pernah dibuat. Data hanya ditampilkan karena token order valid."
+          : "Panel sudah pernah dibuat, tetapi password tidak tersedia karena encryption key belum dikonfigurasi saat order dibuat."
       }
     });
   }
@@ -97,22 +105,35 @@ module.exports = async function handler(req, res) {
   }
 
   order = claimed[0];
-  await addOrderEvent(order.id, "panel_credentials_submitted", "Customer submit username/password panel. Password tidak disimpan.", {
-    username
-  });
+  await addOrderEvent(order.id, "panel_credentials_submitted", "Customer submit username/password panel. Password tidak disimpan plaintext.", { username });
 
   try {
-    assertPterodactylServerConfig(order.product_id);
+    assertPterodactylServerConfig(order.selected_plan);
     const user = await createPterodactylUser({ username, password });
     const userId = user?.id || user?.attributes?.id;
     if (!userId) throw new Error("Pterodactyl user id tidak ditemukan.");
 
     const server = await createPterodactylServer({
       userId,
-      productId: order.product_id,
+      selectedPlan: order.selected_plan,
       username
     });
     const serverId = server?.id || server?.identifier || server?.uuid || server?.attributes?.id;
+
+    const panelPayload = {
+      domain: safeDomain(),
+      username,
+      password,
+      package: order.product_name,
+      panel_user_id: safePanelId(userId),
+      panel_server_id: safePanelId(serverId)
+    };
+    const encrypted = encryptPanelCredentials(panelPayload);
+    const credentialPatch = encrypted.encrypted ? {
+      encrypted_panel_credentials: encrypted.encrypted_panel_credentials,
+      encryption_iv: encrypted.encryption_iv,
+      encryption_auth_tag: encrypted.encryption_auth_tag
+    } : {};
 
     const updated = await updateRows("orders", { id: `eq.${order.id}` }, {
       fulfillment_status: "fulfilled",
@@ -121,26 +142,27 @@ module.exports = async function handler(req, res) {
       panel_server_id: safePanelId(serverId),
       fulfilled_at: new Date().toISOString(),
       error_message: null,
-      updated_at: new Date().toISOString()
+      manual_note: encrypted.encrypted ? null : encrypted.warning,
+      updated_at: new Date().toISOString(),
+      ...credentialPatch
     });
     order = updated[0] || order;
 
     await addOrderEvent(order.id, "panel_created", "Panel berhasil dibuat di Pterodactyl.", {
       panel_user_id: safePanelId(userId),
-      panel_server_id: safePanelId(serverId)
+      panel_server_id: safePanelId(serverId),
+      credentials_encrypted: Boolean(encrypted.encrypted)
     });
 
     return json(res, 200, {
       success: true,
       order: publicOrderPayload(order),
       panel: {
-        domain: process.env.PTERODACTYL_DOMAIN || null,
-        username,
-        password,
-        package: order.product_name,
-        panel_user_id: safePanelId(userId),
-        panel_server_id: safePanelId(serverId),
-        warning: "Simpan data ini sekarang. Admin tidak bertanggung jawab jika data login hilang/dibagikan. Password tidak disimpan oleh sistem."
+        ...panelPayload,
+        password_available: true,
+        warning: encrypted.encrypted
+          ? "Simpan data akun ini. Data hanya dapat dibuka ulang dari riwayat pembelian di perangkat/browser ini selama token order masih tersedia."
+          : "Simpan data ini sekarang. PANEL_CREDENTIALS_ENCRYPTION_KEY belum valid, jadi password tidak disimpan dan tidak bisa dibuka ulang."
       }
     });
   } catch (error) {

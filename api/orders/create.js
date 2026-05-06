@@ -1,9 +1,9 @@
 const { json, methodNotAllowed } = require("../../lib/auth");
-const { readJsonBody, sanitizeString, getSafeError, insertRow, updateRows } = require("../../lib/supabase");
+const { readJsonBody, sanitizeString, insertRow, updateRows } = require("../../lib/supabase");
 const { getClientIp, checkRequestRateLimit } = require("../../lib/rateLimit");
 const { createRecoveryToken, hashRecoveryToken, createPublicCode } = require("../../lib/orderSecurity");
 const { createTopup, normalizeTopupStatus, safeZakkiError } = require("../../lib/zakki");
-const { getProductById, isAutoPaymentProduct, isManualProduct, buildWhatsAppOrderUrl } = require("../../lib/products");
+const { resolveOrderProduct, buildWhatsAppOrderUrl } = require("../../lib/products");
 const { addOrderEvent } = require("../../lib/orderFlow");
 
 function rateLimit(req, res) {
@@ -30,30 +30,18 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { success: false, message: "Payload tidak valid." });
   }
 
-  const productId = sanitizeString(body.product_id || body.productId, 120);
-  const selectedRank = sanitizeString(body.selected_rank || body.selectedRank, 40);
-  const product = getProductById(productId, selectedRank);
+  const productType = sanitizeString(body.product_type || body.productType, 40).toLowerCase();
+  const selectedPlan = sanitizeString(body.selected_plan || body.selectedPlan, 80).toLowerCase();
+  const selectedRank = sanitizeString(body.selected_rank || body.selectedRank, 40).toLowerCase();
+  const product = resolveOrderProduct({ product_type: productType, selected_plan: selectedPlan, selected_rank: selectedRank });
 
   if (!product) {
-    return json(res, 400, { success: false, message: "Produk tidak valid atau belum didukung checkout otomatis." });
-  }
-
-  if (isManualProduct(product)) {
-    return json(res, 200, {
-      success: true,
+    return json(res, 400, {
+      success: false,
+      message: "Checkout otomatis hanya tersedia untuk Panel PTERODACTYL dan Membership Panel.",
       manual_order: true,
-      whatsapp_url: buildWhatsAppOrderUrl(product),
-      product: {
-        id: product.id,
-        name: product.name,
-        category: product.category,
-        price: product.price
-      }
+      whatsapp_url: buildWhatsAppOrderUrl({ name: "produk ALIZZ STORE" })
     });
-  }
-
-  if (!isAutoPaymentProduct(product)) {
-    return json(res, 400, { success: false, message: "Produk ini belum tersedia untuk pembayaran otomatis." });
   }
 
   if (!Number.isInteger(product.amount) || product.amount < 1000) {
@@ -67,26 +55,26 @@ module.exports = async function handler(req, res) {
     order = await insertRow("orders", {
       public_code: createPublicCode(),
       recovery_token_hash: hashRecoveryToken(recoveryToken),
-      product_id: product.id,
-      product_name: product.name,
-      product_category: product.category,
-      selected_rank: product.selected_rank || selectedRank || null,
+      product_type: product.product_type,
+      product_name: product.product_name,
+      selected_plan: product.selected_plan || null,
+      selected_rank: product.selected_rank || null,
       amount: product.amount,
       payment_provider: "zakki",
       payment_status: "pending",
-      fulfillment_status: product.category === "Membership" ? "none" : "none",
+      fulfillment_status: "none",
       order_status: "pending_payment"
     });
 
     await addOrderEvent(order.id, "order_created", "Order dibuat dan menunggu QRIS Zakki.", {
-      product_id: product.id,
-      category: product.category
+      product_type: product.product_type,
+      selected_plan: product.selected_plan || null,
+      selected_rank: product.selected_rank || null
     });
   } catch (error) {
     return json(res, error.statusCode || 500, {
       success: false,
-      message: "Gagal membuat order. Coba lagi atau hubungi admin.",
-      detail: getSafeError(error)
+      message: "Gagal membuat order. Coba lagi atau hubungi admin."
     });
   }
 
@@ -97,9 +85,7 @@ module.exports = async function handler(req, res) {
     const rincian = data.rincian || {};
     const idTransaksi = data.id_transaksi || normalized.id_transaksi;
 
-    if (!idTransaksi) {
-      throw new Error("Response Zakki tidak berisi id_transaksi.");
-    }
+    if (!idTransaksi) throw new Error("Response Zakki tidak berisi id_transaksi.");
 
     const patch = {
       zakki_id_transaksi: idTransaksi,
@@ -125,6 +111,13 @@ module.exports = async function handler(req, res) {
       order_id: order.id,
       public_code: order.public_code,
       recovery_token: recoveryToken,
+      product: {
+        product_type: order.product_type,
+        product_name: order.product_name,
+        selected_plan: order.selected_plan,
+        selected_rank: order.selected_rank,
+        amount: order.amount
+      },
       payment: {
         total_bayar: order.zakki_total_bayar,
         expired_at: order.zakki_expired_at,

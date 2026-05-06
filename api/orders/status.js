@@ -1,7 +1,7 @@
 const { json, methodNotAllowed } = require("../../lib/auth");
 const { readJsonBody, sanitizeString, selectRows } = require("../../lib/supabase");
 const { getClientIp, checkRequestRateLimit } = require("../../lib/rateLimit");
-const { verifyRecoveryToken } = require("../../lib/orderSecurity");
+const { verifyRecoveryToken, decryptPanelCredentials } = require("../../lib/orderSecurity");
 const { verifyAndMarkPaid, publicOrderPayload, addOrderEvent } = require("../../lib/orderFlow");
 const { getMembershipLinks } = require("../../lib/products");
 
@@ -32,9 +32,9 @@ async function getInput(req) {
 function nextStepFor(order) {
   if (order.order_status === "manual_required" || order.fulfillment_status === "failed" || order.fulfillment_status === "manual_required") return "manual_required";
   if (order.payment_status !== "paid") return "pay";
-  if (order.product_category === "Membership") return "membership_links";
-  if (order.product_category === "Panel" && order.fulfillment_status === "fulfilled") return "fulfilled";
-  if (order.product_category === "Panel") return "submit_credentials";
+  if (order.product_type === "membership") return "membership_links";
+  if (order.product_type === "panel" && order.fulfillment_status === "fulfilled") return "fulfilled";
+  if (order.product_type === "panel") return "submit_credentials";
   return "done";
 }
 
@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
   let order = rows[0];
 
   if (!order || !verifyRecoveryToken(token, order.recovery_token_hash)) {
-    return json(res, 401, { success: false, message: "Order tidak ditemukan atau token recovery salah." });
+    return json(res, 403, { success: false, message: "Order tidak ditemukan atau token recovery salah." });
   }
 
   try {
@@ -84,11 +84,11 @@ module.exports = async function handler(req, res) {
     }
   };
 
-  if (order.product_category === "Membership" && order.payment_status === "paid") {
+  if (order.product_type === "membership" && order.payment_status === "paid") {
     payload.membership_links = getMembershipLinks();
   }
 
-  if (order.product_category === "Panel" && order.payment_status === "paid" && order.fulfillment_status !== "fulfilled") {
+  if (order.product_type === "panel" && order.payment_status === "paid" && order.fulfillment_status !== "fulfilled") {
     payload.panel = {
       next_step: "submit_credentials",
       username_rules: "huruf kecil, angka, underscore, 3-32 karakter",
@@ -96,15 +96,20 @@ module.exports = async function handler(req, res) {
     };
   }
 
-  if (order.product_category === "Panel" && order.fulfillment_status === "fulfilled") {
+  if (order.product_type === "panel" && order.fulfillment_status === "fulfilled") {
+    const credentials = decryptPanelCredentials(order);
     payload.panel = {
-      domain: process.env.PTERODACTYL_DOMAIN || null,
-      username: order.customer_username || null,
+      domain: process.env.PTERODACTYL_DOMAIN || credentials?.domain || null,
+      username: credentials?.username || order.customer_username || null,
+      package: credentials?.package || order.product_name || null,
       panel_user_id: order.panel_user_id || null,
       panel_server_id: order.panel_server_id || null,
-      password_available: false,
-      warning: "Password tidak disimpan. Jika hilang, hubungi admin dengan public_code order."
+      password_available: Boolean(credentials && credentials.password),
+      warning: "Simpan data akun ini. Data hanya dapat dibuka ulang dari riwayat pembelian di perangkat/browser ini selama token order masih tersedia."
     };
+    if (credentials && credentials.password) {
+      payload.panel.password = credentials.password;
+    }
   }
 
   return json(res, 200, payload);

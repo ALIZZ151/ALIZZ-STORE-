@@ -1,5 +1,5 @@
--- ALIZZ STORE migration: Zakki QRIS orders + Pterodactyl fulfillment
--- Non-destruktif: tabel voucher/push/telegram lama tidak di-drop diam-diam, hanya ditandai deprecated.
+-- ALIZZ STORE migration: Zakki QRIS orders + encrypted Pterodactyl fulfillment
+-- Apply in Supabase SQL Editor before deploying the new checkout API.
 
 create extension if not exists pgcrypto;
 
@@ -7,15 +7,15 @@ create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   public_code text unique not null,
   recovery_token_hash text not null,
-  product_id text not null,
+  product_type text not null,
   product_name text not null,
-  product_category text not null,
-  selected_rank text null,
+  selected_plan text,
+  selected_rank text,
   amount integer not null,
   payment_provider text default 'zakki',
-  payment_status text not null default 'pending',
-  fulfillment_status text not null default 'none',
-  order_status text not null default 'pending_payment',
+  payment_status text default 'pending',
+  fulfillment_status text default 'none',
+  order_status text default 'pending_payment',
   zakki_id_transaksi text unique,
   zakki_nominal_request integer,
   zakki_kode_unik integer,
@@ -28,11 +28,20 @@ create table if not exists public.orders (
   customer_username text,
   panel_user_id text,
   panel_server_id text,
+  encrypted_panel_credentials text,
+  encryption_iv text,
+  encryption_auth_tag text,
   manual_note text,
   error_message text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.orders add column if not exists product_type text;
+alter table public.orders add column if not exists selected_plan text;
+alter table public.orders add column if not exists encrypted_panel_credentials text;
+alter table public.orders add column if not exists encryption_iv text;
+alter table public.orders add column if not exists encryption_auth_tag text;
 
 create table if not exists public.order_events (
   id uuid primary key default gen_random_uuid(),
@@ -54,8 +63,9 @@ create table if not exists public.payment_callbacks (
 
 create index if not exists orders_public_code_idx on public.orders(public_code);
 create index if not exists orders_zakki_id_transaksi_idx on public.orders(zakki_id_transaksi);
-create index if not exists orders_order_status_idx on public.orders(order_status);
 create index if not exists orders_payment_status_idx on public.orders(payment_status);
+create index if not exists orders_fulfillment_status_idx on public.orders(fulfillment_status);
+create index if not exists orders_order_status_idx on public.orders(order_status);
 create index if not exists orders_created_at_idx on public.orders(created_at desc);
 create index if not exists order_events_order_id_idx on public.order_events(order_id);
 create index if not exists order_events_created_at_idx on public.order_events(created_at desc);
@@ -102,25 +112,6 @@ create trigger orders_touch_updated_at
 before update on public.orders
 for each row execute function public.touch_updated_at();
 
-comment on table public.orders is 'ALIZZ STORE auto-order QRIS Zakki + fulfillment state. recovery_token_hash only; no plaintext password.';
+comment on table public.orders is 'ALIZZ STORE auto-order QRIS Zakki + fulfillment state. recovery_token_hash only; panel credentials encrypted with AES-256-GCM when configured.';
 comment on table public.order_events is 'Audit event order; metadata must not contain token/password/API key.';
-comment on table public.payment_callbacks is 'Raw payment callback storage; webhook must verify ulang ke provider sebelum paid.';
-
-do $$
-begin
-  if to_regclass('public.vouchers') is not null then
-    comment on table public.vouchers is 'DEPRECATED 2026-05-05: fitur voucher dinonaktifkan dari UI/API. Drop via migration terpisah setelah backup jika benar-benar tidak dipakai.';
-  end if;
-  if to_regclass('public.voucher_usages') is not null then
-    comment on table public.voucher_usages is 'DEPRECATED 2026-05-05: fitur voucher dinonaktifkan dari UI/API. Drop via migration terpisah setelah backup jika benar-benar tidak dipakai.';
-  end if;
-  if to_regclass('public.push_subscriptions') is not null then
-    comment on table public.push_subscriptions is 'DEPRECATED 2026-05-05: fitur push notification dinonaktifkan dari frontend/API. Drop via migration terpisah setelah backup jika benar-benar tidak dipakai.';
-  end if;
-  if to_regclass('public.broadcast_notifications') is not null then
-    comment on table public.broadcast_notifications is 'DEPRECATED 2026-05-05: fitur push notification dinonaktifkan dari frontend/API. Drop via migration terpisah setelah backup jika benar-benar tidak dipakai.';
-  end if;
-  if to_regclass('public.telegram_bot_logs') is not null then
-    comment on table public.telegram_bot_logs is 'DEPRECATED 2026-05-05: bot Telegram admin dinonaktifkan. Link Telegram customer tetap boleh dipakai di frontend.';
-  end if;
-end $$;
+comment on table public.payment_callbacks is 'Raw payment callback storage; webhook verifies ulang ke provider before marking paid.';

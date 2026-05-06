@@ -5,8 +5,9 @@ const { verifyAndMarkPaid } = require("../../lib/orderFlow");
 const SELECT_FIELDS = [
   "id",
   "public_code",
+  "product_type",
   "product_name",
-  "product_category",
+  "selected_plan",
   "selected_rank",
   "amount",
   "zakki_total_bayar",
@@ -61,7 +62,7 @@ module.exports = async function handler(req, res) {
   try {
     await verifyAndMarkPaid(order, "admin_check_payment");
   } catch (error) {
-    // Biarkan admin lihat status lama; error mentah tidak diexpose.
+    // Jangan expose error mentah provider ke admin UI.
   }
 
   const orders = await listOrders();

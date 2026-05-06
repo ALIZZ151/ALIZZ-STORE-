@@ -384,7 +384,7 @@
         })
       });
       const result = await safeJson(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Gagal membuat QRIS.");
+      if (!response.ok || !result.success) throw new Error(apiErrorMessage(response, result, "Gagal membuat QRIS. Coba lagi atau hubungi admin."));
 
       checkoutState.order = {
         id: result.order_id,
@@ -445,7 +445,7 @@
     const url = `/api/orders/status?order_id=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`;
     const response = await fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" });
     const result = await safeJson(response);
-    if (!response.ok || !result.success) throw new Error(result.message || "Gagal mengambil status order.");
+    if (!response.ok || !result.success) throw new Error(apiErrorMessage(response, result, "Gagal mengambil status order."));
     return result;
   }
 
@@ -533,7 +533,7 @@
         body: JSON.stringify({ order_id: checkoutState.order.id, recovery_token: checkoutState.token, username, password })
       });
       const result = await safeJson(response);
-      if (!response.ok || !result.success) throw new Error(result.message || "Gagal membuat panel.");
+      if (!response.ok || !result.success) throw new Error(apiErrorMessage(response, result, "Gagal membuat panel."));
       renderPanelCreated(result);
       trackAnalytics("panel_created", { productType: "panel", orderPublicCode: result.order.public_code });
       saveOrderHistory(result.order.id, checkoutState.token, result.order);
@@ -810,6 +810,16 @@
 
   async function safeJson(response) {
     try { return await response.json(); } catch (error) { return {}; }
+  }
+
+
+  function apiErrorMessage(response, result, fallback) {
+    if (result && typeof result.message === "string" && result.message.trim()) return result.message.trim();
+    if (response && response.status === 400) return "Request checkout tidak valid. Silakan refresh halaman.";
+    if (response && response.status === 403) return "Order tidak ditemukan atau token recovery salah.";
+    if (response && response.status === 429) return "Terlalu banyak request. Coba lagi nanti.";
+    if (response && response.status >= 500) return "Server sedang bermasalah atau belum dikonfigurasi lengkap. Hubungi admin.";
+    return fallback || "Terjadi kendala. Coba lagi atau hubungi admin.";
   }
 
   function setButtonLoading(button, loading, text) {

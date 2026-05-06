@@ -3826,3 +3826,190 @@ body[data-page="produk"] .product-card {
     font-size: 0.92rem !important;
   }
 }
+
+/* ALIZZ STORE checkout QRIS */
+.checkout-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.checkout-modal.is-open {
+  display: flex;
+}
+
+.checkout-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.checkout-dialog {
+  position: relative;
+  width: min(96vw, 520px);
+  max-height: min(90vh, 840px);
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 28px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.45);
+  padding: 24px;
+}
+
+.checkout-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.checkout-head h2 {
+  margin: 8px 0;
+  color: #fff;
+}
+
+.checkout-head p,
+.checkout-note {
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.checkout-head.success .eyebrow {
+  color: #86efac;
+}
+
+.checkout-product-box,
+.payment-total,
+.panel-result > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  margin: 14px 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.checkout-product-box strong,
+.payment-total strong,
+.panel-result strong {
+  color: #fff;
+  text-align: right;
+}
+
+.checkout-product-box span,
+.payment-total span,
+.panel-result span {
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.checkout-label {
+  display: grid;
+  gap: 8px;
+  color: #e2e8f0;
+  margin: 14px 0;
+}
+
+.checkout-label select,
+.checkout-form input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  padding: 12px 14px;
+}
+
+.checkout-benefit,
+.checkout-alert {
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  background: rgba(59, 130, 246, 0.12);
+  color: #bfdbfe;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+}
+
+.checkout-alert.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.checkout-alert.warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.checkout-actions,
+.checkout-link-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.qris-box {
+  display: grid;
+  place-items: center;
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 24px;
+  background: #fff;
+}
+
+.qris-box img {
+  max-width: min(320px, 74vw);
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.qris-box code {
+  color: #0f172a;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.checkout-countdown {
+  text-align: center;
+  color: #bfdbfe;
+  font-weight: 700;
+}
+
+.checkout-countdown.expired {
+  color: #fecaca;
+}
+
+.checkout-loading {
+  width: 42px;
+  height: 42px;
+  margin: 24px auto;
+  border-radius: 999px;
+  border: 4px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.82);
+  animation: alizzSpin 0.8s linear infinite;
+}
+
+@keyframes alizzSpin {
+  to { transform: rotate(360deg); }
+}
+
+.table-status.pending,
+.table-status.processing {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}

@@ -1,7 +1,7 @@
 (function () {
   const STORAGE_KEY = "alizz_store_products";
   const BACKUP_KEY = "alizz_store_products_backup_v1";
-  const STORAGE_VERSION = 2;
+  const STORAGE_VERSION = 3;
 
   const WHATSAPP_NUMBER = "6281914401217";
   const TELEGRAM_USERNAME = "my_bini";
@@ -54,7 +54,7 @@
       id: "panel-1gb",
       name: "Panel Pterodactyl 1GB",
       category: "Panel",
-      price: "Rp500",
+      price: "Rp1.000",
       stock: 20,
       status: "available",
       description: "Panel legal buat run bot WhatsApp ringan biar online 24 jam.",
@@ -64,7 +64,7 @@
       id: "panel-2gb",
       name: "Panel Pterodactyl 2GB",
       category: "Panel",
-      price: "Rp1.000",
+      price: "Rp1.500",
       stock: 20,
       status: "available",
       description: "Panel legal dengan kapasitas 2GB untuk kebutuhan bot basic.",
@@ -74,7 +74,7 @@
       id: "panel-3gb",
       name: "Panel Pterodactyl 3GB",
       category: "Panel",
-      price: "Rp1.500",
+      price: "Rp2.000",
       stock: 20,
       status: "available",
       description: "Panel legal 3GB buat bot WhatsApp yang butuh resource lebih lega.",
@@ -84,7 +84,7 @@
       id: "panel-4gb",
       name: "Panel Pterodactyl 4GB",
       category: "Panel",
-      price: "Rp2.000",
+      price: "Rp2.500",
       stock: 20,
       status: "available",
       description: "Panel 4GB cocok buat bot aktif dengan pemakaian stabil.",
@@ -94,7 +94,7 @@
       id: "panel-5gb",
       name: "Panel Pterodactyl 5GB",
       category: "Panel",
-      price: "Rp2.500",
+      price: "Rp3.000",
       stock: 20,
       status: "available",
       description: "Panel 5GB buat bot WhatsApp dan script yang butuh kapasitas lebih.",
@@ -104,7 +104,7 @@
       id: "panel-6gb",
       name: "Panel Pterodactyl 6GB",
       category: "Panel",
-      price: "Rp3.000",
+      price: "Rp3.500",
       stock: 20,
       status: "available",
       description: "Panel legal 6GB dengan akses panel penuh dan support admin.",
@@ -114,7 +114,7 @@
       id: "panel-7gb",
       name: "Panel Pterodactyl 7GB",
       category: "Panel",
-      price: "Rp3.500",
+      price: "Rp4.000",
       stock: 20,
       status: "available",
       description: "Panel 7GB untuk bot yang lebih aktif dan butuh performa stabil.",
@@ -124,7 +124,7 @@
       id: "panel-8gb",
       name: "Panel Pterodactyl 8GB",
       category: "Panel",
-      price: "Rp4.000",
+      price: "Rp4.500",
       stock: 20,
       status: "available",
       description: "Panel 8GB cocok buat run bot WhatsApp dengan kebutuhan lebih besar.",
@@ -134,7 +134,7 @@
       id: "panel-9gb",
       name: "Panel Pterodactyl 9GB",
       category: "Panel",
-      price: "Rp4.500",
+      price: "Rp5.000",
       stock: 20,
       status: "available",
       description: "Panel legal 9GB buat kamu yang butuh kapasitas tinggi.",
@@ -144,7 +144,7 @@
       id: "panel-10gb",
       name: "Panel Pterodactyl 10GB",
       category: "Panel",
-      price: "Rp5.000",
+      price: "Rp6.000",
       stock: 20,
       status: "available",
       description: "Panel 10GB buat bot aktif, script, dan kebutuhan digital yang lebih berat.",
@@ -154,7 +154,7 @@
       id: "panel-unli",
       name: "Panel Pterodactyl UNLI",
       category: "Panel",
-      price: "Rp6.000",
+      price: "Rp8.000",
       stock: 20,
       status: "available",
       description: "Panel UNLI buat kebutuhan bot dan script yang ingin lebih bebas.",
@@ -422,14 +422,40 @@
     }
   }
 
+  const CANONICAL_PRICE_UPDATES = {
+    "panel-1gb": "Rp1.000",
+    "panel-2gb": "Rp1.500",
+    "panel-3gb": "Rp2.000",
+    "panel-4gb": "Rp2.500",
+    "panel-5gb": "Rp3.000",
+    "panel-6gb": "Rp3.500",
+    "panel-7gb": "Rp4.000",
+    "panel-8gb": "Rp4.500",
+    "panel-9gb": "Rp5.000",
+    "panel-10gb": "Rp6.000",
+    "panel-unli": "Rp8.000"
+  };
+
+  function applyCanonicalProductUpdates(items) {
+    let changed = false;
+    const next = items.map(function (product) {
+      const expectedPrice = CANONICAL_PRICE_UPDATES[product.id];
+      if (!expectedPrice || product.price === expectedPrice) return product;
+      changed = true;
+      return { ...product, price: expectedPrice };
+    });
+    return { products: next, changed };
+  }
+
   function getProducts() {
     const current = readProductsFromKey(STORAGE_KEY);
 
     if (current.ok) {
-      if (current.legacy) {
-        writeProductsToKey(STORAGE_KEY, current.products);
+      const canonical = applyCanonicalProductUpdates(current.products);
+      if (current.legacy || canonical.changed) {
+        writeProductsToKey(STORAGE_KEY, canonical.products);
       }
-      return clone(current.products);
+      return clone(canonical.products);
     }
 
     const backup = readProductsFromKey(BACKUP_KEY);

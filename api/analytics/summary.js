@@ -22,10 +22,14 @@ function uniqueVisitors(events) {
   return new Set(events.map((event) => event.visitor_id_hash).filter(Boolean)).size;
 }
 
-function topBy(events, eventName, keyName, limit = 8) {
+function eventMatches(event, eventNames) {
+  return Array.isArray(eventNames) ? eventNames.includes(event.event_name) : event.event_name === eventNames;
+}
+
+function topBy(events, eventNames, keyName, limit = 8) {
   const map = new Map();
 
-  events.filter((event) => event.event_name === eventName).forEach((event) => {
+  events.filter((event) => eventMatches(event, eventNames)).forEach((event) => {
     const key = event[keyName] || (event.metadata && event.metadata[keyName]) || "Tidak diketahui";
     const label = event.product_name || key;
     const item = map.get(key) || { key, label, total: 0 };
@@ -57,6 +61,7 @@ module.exports = async function handler(req, res) {
     const todayEvents = events.filter((event) => event.created_at >= today);
     const weekEvents = events.filter((event) => event.created_at >= weekAgo);
     const monthEvents = events.filter((event) => event.created_at >= monthStart);
+    const manualClickEvents = ["manual_order_click", "order_whatsapp_click"];
 
     return json(res, 200, {
       ok: true,
@@ -74,18 +79,19 @@ module.exports = async function handler(req, res) {
         pageViewsTotalWindow: countWhere(events, (event) => event.event_name === "page_view"),
         pageViewsToday: countWhere(todayEvents, (event) => event.event_name === "page_view"),
         whatsappOrderClicks: countWhere(events, (event) => event.event_name === "order_whatsapp_click"),
+        manualOrderClicks: countWhere(events, (event) => manualClickEvents.includes(event.event_name)),
         telegramOrderClicks: countWhere(events, (event) => event.event_name === "order_telegram_click"),
         developerWhatsappClicks: countWhere(events, (event) => event.event_name === "developer_whatsapp_click"),
         testimonialChannelClicks: countWhere(events, (event) => event.event_name === "testimonial_channel_click"),
-        notificationPromptShown: countWhere(events, (event) => event.event_name === "notification_prompt_shown"),
-        notificationGranted: countWhere(events, (event) => event.event_name === "notification_permission_granted"),
-        notificationDenied: countWhere(
-          events,
-          (event) => event.event_name === "notification_permission_denied" || event.event_name === "notification_permission_skipped"
-        )
+        chatbotOpen: countWhere(events, (event) => event.event_name === "chatbot_open"),
+        checkoutOpen: countWhere(events, (event) => event.event_name === "checkout_open"),
+        checkoutConfirm: countWhere(events, (event) => event.event_name === "checkout_confirm"),
+        paymentPaid: countWhere(events, (event) => event.event_name === "payment_paid"),
+        panelCreated: countWhere(events, (event) => event.event_name === "panel_created"),
+        membershipLinksShown: countWhere(events, (event) => event.event_name === "membership_links_shown")
       },
       topProductsViewed: topBy(events, "product_view", "product_id", 10),
-      topOrderClicks: topBy(events, "order_whatsapp_click", "product_id", 10)
+      topOrderClicks: topBy(events, manualClickEvents, "product_id", 10)
     });
   } catch (error) {
     return json(res, error.statusCode || 500, {

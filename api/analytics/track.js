@@ -18,13 +18,16 @@ const ALLOWED_EVENTS = new Set([
   "order_telegram_click",
   "developer_whatsapp_click",
   "testimonial_channel_click",
-  "notification_prompt_shown",
-  "notification_permission_granted",
-  "notification_permission_denied",
-  "notification_permission_skipped",
   "chatbot_open",
-  "voucher_apply",
-  "promo_popup_click"
+  "promo_popup_click",
+  "checkout_open",
+  "checkout_confirm",
+  "payment_qris_shown",
+  "payment_paid",
+  "panel_credentials_submitted",
+  "panel_created",
+  "membership_links_shown",
+  "manual_order_click"
 ]);
 
 function hashValue(value) {

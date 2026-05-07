@@ -2,7 +2,7 @@ const { json, methodNotAllowed } = require("../../lib/auth");
 const { readJsonBody, sanitizeString, insertRow, updateRows } = require("../../lib/supabase");
 const { getClientIp, checkRequestRateLimit } = require("../../lib/rateLimit");
 const { createRecoveryToken, hashRecoveryToken, createPublicCode } = require("../../lib/orderSecurity");
-const { createTopup, normalizeTopupStatus, safeZakkiError } = require("../../lib/zakki");
+const { createTopup, normalizeTopupStatus, safeZakkiError, getZakkiRuntimeInfo } = require("../../lib/zakki");
 const { resolveOrderProduct, buildWhatsAppOrderUrl } = require("../../lib/products");
 const { addOrderEvent } = require("../../lib/orderFlow");
 
@@ -14,13 +14,20 @@ const REQUIRED_ENV = [
   "ZAKKI_API_BASE_URL"
 ];
 
-function safeLog(event, payload = {}) {
+const SAFE_DEBUG_KEYS = new Set(["tokenLength", "tokenSha256Prefix"]);
+
+function isBlockedLogKey(key) {
+  if (SAFE_DEBUG_KEYS.has(String(key))) return false;
+  const lower = String(key).toLowerCase();
   const blockedKeys = ["token", "secret", "password", "authorization", "cookie", "key"];
+  return blockedKeys.some((blocked) => lower.includes(blocked));
+}
+
+function safeLog(event, payload = {}) {
   const output = {};
 
   Object.entries(payload || {}).forEach(([key, value]) => {
-    const lower = String(key).toLowerCase();
-    if (blockedKeys.some((blocked) => lower.includes(blocked))) return;
+    if (isBlockedLogKey(key)) return;
     if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
       output[key] = typeof value === "string" ? value.slice(0, 800) : value;
     } else if (Array.isArray(value)) {
@@ -45,11 +52,9 @@ function safeErrorLog(event, payload = {}) {
 }
 
 function sanitizeLogObject(input) {
-  const blockedKeys = ["token", "secret", "password", "authorization", "cookie", "key"];
   const output = {};
   Object.entries(input || {}).slice(0, 30).forEach(([key, value]) => {
-    const lower = String(key).toLowerCase();
-    if (blockedKeys.some((blocked) => lower.includes(blocked))) return;
+    if (isBlockedLogKey(key)) return;
     if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
       output[key] = typeof value === "string" ? value.slice(0, 800) : value;
     } else {
@@ -59,8 +64,22 @@ function sanitizeLogObject(input) {
   return output;
 }
 
+function getZakkiResponseSummary(error) {
+  const debug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
+  const responseBody = debug.responseBody && typeof debug.responseBody === "object" ? debug.responseBody : {};
+  const data = responseBody.data && typeof responseBody.data === "object" ? responseBody.data : {};
+
+  return {
+    responseStatus: debug.responseStatus == null ? null : Number(debug.responseStatus),
+    responseMessage: String(responseBody.message || responseBody.error || data.message || data.error || "").slice(0, 700) || null,
+    responseCode: String(responseBody.code || responseBody.error_code || data.code || data.error_code || "").slice(0, 120) || null
+  };
+}
+
 function sanitizeError(error) {
   const details = error && error.details && typeof error.details === "object" ? error.details : null;
+  const debug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
+  const zakkiSummary = getZakkiResponseSummary(error);
   return {
     name: error && error.name ? String(error.name).slice(0, 120) : "Error",
     message: error && error.message ? String(error.message).slice(0, 800) : "Unknown error",
@@ -68,7 +87,13 @@ function sanitizeError(error) {
     code: error && error.code ? String(error.code).slice(0, 120) : details && details.code ? String(details.code).slice(0, 120) : undefined,
     details: details && details.details ? String(details.details).slice(0, 800) : undefined,
     hint: details && details.hint ? String(details.hint).slice(0, 800) : undefined,
-    supabaseMessage: details && details.message ? String(details.message).slice(0, 800) : undefined
+    supabaseMessage: details && details.message ? String(details.message).slice(0, 800) : undefined,
+    zakkiResponseStatus: zakkiSummary.responseStatus,
+    zakkiResponseMessage: zakkiSummary.responseMessage,
+    zakkiResponseCode: zakkiSummary.responseCode,
+    zakkiBaseUrl: debug.baseUrl || undefined,
+    tokenLength: debug.tokenLength == null ? undefined : Number(debug.tokenLength),
+    tokenSha256Prefix: debug.tokenSha256Prefix || undefined
   };
 }
 
@@ -294,6 +319,8 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     const safe = safeZakkiError(error);
+    const zakkiDebug = getZakkiRuntimeInfo();
+    const zakkiErrorDebug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
     safeErrorLog("ORDER_CREATE_ZAKKI_FAILED", {
       step: "zakki_create_topup",
       product_type: product.product_type,
@@ -302,6 +329,10 @@ module.exports = async function handler(req, res) {
       order_id: order.id,
       public_code: order.public_code,
       zakki_error_code: safe.code,
+      baseUrl: zakkiDebug.baseUrl,
+      tokenLength: zakkiDebug.tokenLength,
+      tokenSha256Prefix: zakkiDebug.tokenSha256Prefix,
+      responseStatus: zakkiErrorDebug.responseStatus == null ? null : Number(zakkiErrorDebug.responseStatus),
       error
     });
 

@@ -1,0 +1,425 @@
+diff -ruN alizz_orig/ALIZZ-STORE--main/api/debug/zakki-env-test.js alizz_work/ALIZZ-STORE--main/api/debug/zakki-env-test.js
+--- alizz_orig/ALIZZ-STORE--main/api/debug/zakki-env-test.js	1970-01-01 00:00:00.000000000 +0000
++++ alizz_work/ALIZZ-STORE--main/api/debug/zakki-env-test.js	2026-05-07 06:58:59.096121283 +0000
+@@ -0,0 +1,88 @@
++const { json, methodNotAllowed, requireAdmin } = require("../../lib/auth");
++const { createTopup, getZakkiRuntimeInfo, sanitizeZakkiResponse, safeZakkiError } = require("../../lib/zakki");
++
++function getPublicZakkiEnvInfo() {
++  const info = getZakkiRuntimeInfo();
++  return {
++    zakkiBaseUrl: info.baseUrl,
++    tokenExists: info.tokenExists,
++    tokenLength: info.tokenLength,
++    tokenSha256Prefix: info.tokenSha256Prefix,
++    nodeEnv: process.env.NODE_ENV || "",
++    vercelEnv: process.env.VERCEL_ENV || ""
++  };
++}
++
++function safeErrorDetails(error) {
++  const debug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
++  const responseBody = debug.responseBody && typeof debug.responseBody === "object" ? debug.responseBody : null;
++  return {
++    code: error && error.code ? String(error.code).slice(0, 120) : "ZAKKI_ERROR",
++    message: error && error.message ? String(error.message).slice(0, 700) : "Zakki test gagal.",
++    statusCode: error && error.statusCode ? Number(error.statusCode) : 502,
++    responseStatus: debug.responseStatus == null ? null : Number(debug.responseStatus),
++    response: responseBody ? sanitizeZakkiResponse(responseBody) : null
++  };
++}
++
++module.exports = async function handler(req, res) {
++  if (req.method !== "GET" && req.method !== "POST") return methodNotAllowed(res, ["GET", "POST"]);
++  if (!requireAdmin(req)) return json(res, 401, { ok: false, message: "Unauthorized." });
++
++  const env = getPublicZakkiEnvInfo();
++
++  if (req.method === "GET") {
++    return json(res, 200, {
++      ok: true,
++      ...env
++    });
++  }
++
++  if (!env.tokenExists || !env.zakkiBaseUrl) {
++    return json(res, 500, {
++      ok: false,
++      message: "Zakki ENV belum lengkap.",
++      ...env,
++      test: {
++        success: false,
++        error: "ZAKKI_ENV_MISSING"
++      }
++    });
++  }
++
++  try {
++    const response = await createTopup(1000);
++    return json(res, 200, {
++      ok: true,
++      message: "Test create QRIS Zakki berhasil.",
++      ...env,
++      test: {
++        success: true,
++        nominal: 1000,
++        response: sanitizeZakkiResponse(response)
++      }
++    });
++  } catch (error) {
++    const safe = safeZakkiError(error);
++    const details = safeErrorDetails(error);
++    console.error("[ZAKKI_ENV_TEST_FAILED]", JSON.stringify({
++      step: "debug_zakki_env_test_create_topup",
++      baseUrl: env.zakkiBaseUrl,
++      tokenLength: env.tokenLength,
++      tokenSha256Prefix: env.tokenSha256Prefix,
++      code: details.code,
++      responseStatus: details.responseStatus,
++      message: details.message
++    }));
++
++    return json(res, details.statusCode >= 400 && details.statusCode < 600 ? details.statusCode : 502, {
++      ok: false,
++      message: safe.message,
++      ...env,
++      test: {
++        success: false,
++        error: details
++      }
++    });
++  }
++};
+diff -ruN alizz_orig/ALIZZ-STORE--main/api/orders/create.js alizz_work/ALIZZ-STORE--main/api/orders/create.js
+--- alizz_orig/ALIZZ-STORE--main/api/orders/create.js	2026-05-06 05:52:20.000000000 +0000
++++ alizz_work/ALIZZ-STORE--main/api/orders/create.js	2026-05-07 06:58:39.420622701 +0000
+@@ -2,7 +2,7 @@
+ const { readJsonBody, sanitizeString, insertRow, updateRows } = require("../../lib/supabase");
+ const { getClientIp, checkRequestRateLimit } = require("../../lib/rateLimit");
+ const { createRecoveryToken, hashRecoveryToken, createPublicCode } = require("../../lib/orderSecurity");
+-const { createTopup, normalizeTopupStatus, safeZakkiError } = require("../../lib/zakki");
++const { createTopup, normalizeTopupStatus, safeZakkiError, getZakkiRuntimeInfo } = require("../../lib/zakki");
+ const { resolveOrderProduct, buildWhatsAppOrderUrl } = require("../../lib/products");
+ const { addOrderEvent } = require("../../lib/orderFlow");
+ 
+@@ -14,13 +14,20 @@
+   "ZAKKI_API_BASE_URL"
+ ];
+ 
+-function safeLog(event, payload = {}) {
++const SAFE_DEBUG_KEYS = new Set(["tokenLength", "tokenSha256Prefix"]);
++
++function isBlockedLogKey(key) {
++  if (SAFE_DEBUG_KEYS.has(String(key))) return false;
++  const lower = String(key).toLowerCase();
+   const blockedKeys = ["token", "secret", "password", "authorization", "cookie", "key"];
++  return blockedKeys.some((blocked) => lower.includes(blocked));
++}
++
++function safeLog(event, payload = {}) {
+   const output = {};
+ 
+   Object.entries(payload || {}).forEach(([key, value]) => {
+-    const lower = String(key).toLowerCase();
+-    if (blockedKeys.some((blocked) => lower.includes(blocked))) return;
++    if (isBlockedLogKey(key)) return;
+     if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
+       output[key] = typeof value === "string" ? value.slice(0, 800) : value;
+     } else if (Array.isArray(value)) {
+@@ -45,11 +52,9 @@
+ }
+ 
+ function sanitizeLogObject(input) {
+-  const blockedKeys = ["token", "secret", "password", "authorization", "cookie", "key"];
+   const output = {};
+   Object.entries(input || {}).slice(0, 30).forEach(([key, value]) => {
+-    const lower = String(key).toLowerCase();
+-    if (blockedKeys.some((blocked) => lower.includes(blocked))) return;
++    if (isBlockedLogKey(key)) return;
+     if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
+       output[key] = typeof value === "string" ? value.slice(0, 800) : value;
+     } else {
+@@ -59,8 +64,22 @@
+   return output;
+ }
+ 
++function getZakkiResponseSummary(error) {
++  const debug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
++  const responseBody = debug.responseBody && typeof debug.responseBody === "object" ? debug.responseBody : {};
++  const data = responseBody.data && typeof responseBody.data === "object" ? responseBody.data : {};
++
++  return {
++    responseStatus: debug.responseStatus == null ? null : Number(debug.responseStatus),
++    responseMessage: String(responseBody.message || responseBody.error || data.message || data.error || "").slice(0, 700) || null,
++    responseCode: String(responseBody.code || responseBody.error_code || data.code || data.error_code || "").slice(0, 120) || null
++  };
++}
++
+ function sanitizeError(error) {
+   const details = error && error.details && typeof error.details === "object" ? error.details : null;
++  const debug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
++  const zakkiSummary = getZakkiResponseSummary(error);
+   return {
+     name: error && error.name ? String(error.name).slice(0, 120) : "Error",
+     message: error && error.message ? String(error.message).slice(0, 800) : "Unknown error",
+@@ -68,7 +87,13 @@
+     code: error && error.code ? String(error.code).slice(0, 120) : details && details.code ? String(details.code).slice(0, 120) : undefined,
+     details: details && details.details ? String(details.details).slice(0, 800) : undefined,
+     hint: details && details.hint ? String(details.hint).slice(0, 800) : undefined,
+-    supabaseMessage: details && details.message ? String(details.message).slice(0, 800) : undefined
++    supabaseMessage: details && details.message ? String(details.message).slice(0, 800) : undefined,
++    zakkiResponseStatus: zakkiSummary.responseStatus,
++    zakkiResponseMessage: zakkiSummary.responseMessage,
++    zakkiResponseCode: zakkiSummary.responseCode,
++    zakkiBaseUrl: debug.baseUrl || undefined,
++    tokenLength: debug.tokenLength == null ? undefined : Number(debug.tokenLength),
++    tokenSha256Prefix: debug.tokenSha256Prefix || undefined
+   };
+ }
+ 
+@@ -294,6 +319,8 @@
+     });
+   } catch (error) {
+     const safe = safeZakkiError(error);
++    const zakkiDebug = getZakkiRuntimeInfo();
++    const zakkiErrorDebug = error && error.debug && typeof error.debug === "object" ? error.debug : {};
+     safeErrorLog("ORDER_CREATE_ZAKKI_FAILED", {
+       step: "zakki_create_topup",
+       product_type: product.product_type,
+@@ -302,6 +329,10 @@
+       order_id: order.id,
+       public_code: order.public_code,
+       zakki_error_code: safe.code,
++      baseUrl: zakkiDebug.baseUrl,
++      tokenLength: zakkiDebug.tokenLength,
++      tokenSha256Prefix: zakkiDebug.tokenSha256Prefix,
++      responseStatus: zakkiErrorDebug.responseStatus == null ? null : Number(zakkiErrorDebug.responseStatus),
+       error
+     });
+ 
+diff -ruN alizz_orig/ALIZZ-STORE--main/lib/zakki.js alizz_work/ALIZZ-STORE--main/lib/zakki.js
+--- alizz_orig/ALIZZ-STORE--main/lib/zakki.js	2026-05-05 12:01:16.000000000 +0000
++++ alizz_work/ALIZZ-STORE--main/lib/zakki.js	2026-05-07 06:58:16.501134846 +0000
+@@ -1,13 +1,16 @@
++const crypto = require("crypto");
++
+ const DEFAULT_BASE_URL = "https://qris.zakki.store";
+ const REQUEST_TIMEOUT_MS = 10000;
+ 
+ class ZakkiError extends Error {
+-  constructor(message, code, statusCode, details) {
++  constructor(message, code, statusCode, details, debug = {}) {
+     super(message);
+     this.name = "ZakkiError";
+     this.code = code || "ZAKKI_ERROR";
+     this.statusCode = statusCode || 502;
+     this.details = details;
++    this.debug = debug;
+   }
+ }
+ 
+@@ -17,10 +20,102 @@
+ 
+ function getToken() {
+   const token = String(process.env.ZAKKI_API_TOKEN || "").trim();
+-  if (!token) throw new ZakkiError("Token Zakki belum dikonfigurasi.", "ZAKKI_TOKEN_MISSING", 503);
++  if (!token) {
++    throw new ZakkiError("Token Zakki belum dikonfigurasi.", "ZAKKI_TOKEN_MISSING", 503, null, getZakkiRuntimeInfo());
++  }
+   return token;
+ }
+ 
++function getTokenSha256Prefix(token = process.env.ZAKKI_API_TOKEN) {
++  const value = String(token || "").trim();
++  if (!value) return "";
++  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 8);
++}
++
++function getZakkiRuntimeInfo() {
++  const token = String(process.env.ZAKKI_API_TOKEN || "").trim();
++  return {
++    baseUrl: getBaseUrl(),
++    tokenExists: Boolean(token),
++    tokenLength: token.length,
++    tokenSha256Prefix: getTokenSha256Prefix(token)
++  };
++}
++
++function safeString(value, maxLength = 700) {
++  return String(value == null ? "" : value)
++    .replace(/[\u0000-\u001F\u007F]/g, " ")
++    .replace(/\s+/g, " ")
++    .trim()
++    .slice(0, maxLength);
++}
++
++function sanitizeZakkiResponse(input, depth = 0) {
++  if (input == null) return input;
++  if (["string", "number", "boolean"].includes(typeof input)) {
++    return typeof input === "string" ? safeString(input, 900) : input;
++  }
++  if (Array.isArray(input)) {
++    return input.slice(0, 20).map((item) => sanitizeZakkiResponse(item, depth + 1));
++  }
++  if (typeof input !== "object") return safeString(input, 300);
++  if (depth > 4) return "[object]";
++
++  const blockedKeys = ["token", "secret", "password", "authorization", "cookie", "apikey", "api_key", "key"];
++  const output = {};
++
++  Object.entries(input).slice(0, 60).forEach(([key, value]) => {
++    const lower = String(key).toLowerCase();
++    if (blockedKeys.some((blocked) => lower.includes(blocked))) return;
++
++    if (typeof value === "string") {
++      if (lower.includes("qris_image") && value.length > 220) {
++        output[key] = `${value.slice(0, 220)}...`;
++        return;
++      }
++      if (lower.includes("qris_content") && value.length > 300) {
++        output[key] = `${value.slice(0, 300)}...`;
++        return;
++      }
++      output[key] = safeString(value, 900);
++      return;
++    }
++
++    output[key] = sanitizeZakkiResponse(value, depth + 1);
++  });
++
++  return output;
++}
++
++function getZakkiBodySummary(body) {
++  if (!body || typeof body !== "object") return { message: safeString(body, 500) || null, code: null };
++  const data = body.data && typeof body.data === "object" ? body.data : {};
++  return {
++    message: safeString(body.message || body.error || data.message || data.error || body.raw || "", 700) || null,
++    code: safeString(body.code || body.error_code || data.code || data.error_code || "", 120) || null,
++    status: safeString(body.status || body.kategori_status || data.status || data.kategori_status || "", 120) || null
++  };
++}
++
++function logZakkiFailure(event, payload = {}) {
++  const debug = getZakkiRuntimeInfo();
++  const bodySummary = getZakkiBodySummary(payload.body);
++  console.error(`[${event}]`, JSON.stringify({
++    step: payload.step || "zakki_request",
++    method: payload.method || null,
++    path: payload.path || null,
++    responseStatus: payload.responseStatus == null ? null : Number(payload.responseStatus),
++    responseMessage: bodySummary.message,
++    responseCode: bodySummary.code,
++    responseStatusText: bodySummary.status,
++    baseUrl: debug.baseUrl,
++    tokenLength: debug.tokenLength,
++    tokenSha256Prefix: debug.tokenSha256Prefix,
++    errorCode: payload.errorCode || null,
++    errorMessage: payload.errorMessage ? safeString(payload.errorMessage, 700) : null
++  }));
++}
++
+ async function parseResponse(response) {
+   const text = await response.text();
+   if (!text) return null;
+@@ -34,10 +129,12 @@
+ async function zakkiFetch(path, options = {}) {
+   const controller = new AbortController();
+   const timeout = setTimeout(() => controller.abort(), options.timeoutMs || REQUEST_TIMEOUT_MS);
++  const method = options.method || "GET";
++  const baseUrl = getBaseUrl();
+ 
+   try {
+-    const response = await fetch(`${getBaseUrl()}${path}`, {
+-      method: options.method || "GET",
++    const response = await fetch(`${baseUrl}${path}`, {
++      method,
+       headers: {
+         Accept: "application/json",
+         ...(options.body ? { "Content-Type": "application/json" } : {}),
+@@ -50,23 +147,53 @@
+     const data = await parseResponse(response);
+ 
+     if (!response.ok) {
++      logZakkiFailure("ZAKKI_REQUEST_FAILED", {
++        step: "http_response",
++        method,
++        path,
++        responseStatus: response.status,
++        body: data
++      });
++
+       const message = data && typeof data === "object" ? data.message || data.error : "Zakki request gagal.";
++      const debug = {
++        ...getZakkiRuntimeInfo(),
++        responseStatus: response.status,
++        responseBody: sanitizeZakkiResponse(data)
++      };
+       if (response.status === 401 || response.status === 403) {
+-        throw new ZakkiError("Token Zakki tidak valid atau tidak punya akses.", "ZAKKI_UNAUTHORIZED", 502, data);
++        throw new ZakkiError("Token Zakki tidak valid atau tidak punya akses.", "ZAKKI_UNAUTHORIZED", 502, data, debug);
+       }
+       if (response.status === 404) {
+-        throw new ZakkiError("Transaksi Zakki tidak ditemukan.", "ZAKKI_NOT_FOUND", 404, data);
++        throw new ZakkiError("Transaksi Zakki tidak ditemukan.", "ZAKKI_NOT_FOUND", 404, data, debug);
+       }
+-      throw new ZakkiError(message || "Zakki request gagal.", "ZAKKI_HTTP_ERROR", 502, data);
++      throw new ZakkiError(message || "Zakki request gagal.", "ZAKKI_HTTP_ERROR", 502, data, debug);
+     }
+ 
+     return data;
+   } catch (error) {
+     if (error.name === "AbortError") {
+-      throw new ZakkiError("Koneksi ke Zakki timeout.", "ZAKKI_TIMEOUT", 504);
++      logZakkiFailure("ZAKKI_REQUEST_FAILED", {
++        step: "timeout",
++        method,
++        path,
++        responseStatus: null,
++        errorCode: "ZAKKI_TIMEOUT",
++        errorMessage: "Koneksi ke Zakki timeout."
++      });
++      throw new ZakkiError("Koneksi ke Zakki timeout.", "ZAKKI_TIMEOUT", 504, null, getZakkiRuntimeInfo());
+     }
+     if (error instanceof ZakkiError) throw error;
+-    throw new ZakkiError("Koneksi ke Zakki gagal.", "ZAKKI_NETWORK_ERROR", 502);
++
++    logZakkiFailure("ZAKKI_REQUEST_FAILED", {
++      step: "network_error",
++      method,
++      path,
++      responseStatus: null,
++      errorCode: "ZAKKI_NETWORK_ERROR",
++      errorMessage: error && error.message ? error.message : "Koneksi ke Zakki gagal."
++    });
++    throw new ZakkiError("Koneksi ke Zakki gagal.", "ZAKKI_NETWORK_ERROR", 502, null, getZakkiRuntimeInfo());
+   } finally {
+     clearTimeout(timeout);
+   }
+@@ -75,7 +202,7 @@
+ async function createTopup(amount) {
+   const nominal = Number(amount);
+   if (!Number.isInteger(nominal) || nominal < 1000) {
+-    throw new ZakkiError("Nominal QRIS minimal Rp1.000.", "ZAKKI_INVALID_AMOUNT", 400);
++    throw new ZakkiError("Nominal QRIS minimal Rp1.000.", "ZAKKI_INVALID_AMOUNT", 400, null, getZakkiRuntimeInfo());
+   }
+ 
+   return zakkiFetch("/topup", {
+@@ -89,7 +216,7 @@
+ 
+ async function checkTopup(idTransaksi) {
+   const id = String(idTransaksi || "").trim();
+-  if (!id) throw new ZakkiError("ID transaksi Zakki wajib diisi.", "ZAKKI_ID_REQUIRED", 400);
++  if (!id) throw new ZakkiError("ID transaksi Zakki wajib diisi.", "ZAKKI_ID_REQUIRED", 400, null, getZakkiRuntimeInfo());
+   return zakkiFetch(`/cektopup?idtopup=${encodeURIComponent(id)}`, { method: "GET" });
+ }
+ 
+@@ -168,5 +295,7 @@
+   checkTopup,
+   normalizeTopupStatus,
+   verifyTopupPaid,
+-  safeZakkiError
++  safeZakkiError,
++  getZakkiRuntimeInfo,
++  sanitizeZakkiResponse
+ };

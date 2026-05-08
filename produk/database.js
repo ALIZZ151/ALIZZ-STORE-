@@ -1,7 +1,7 @@
 (function () {
   const STORAGE_KEY = "alizz_store_products";
   const BACKUP_KEY = "alizz_store_products_backup_v1";
-  const STORAGE_VERSION = 2;
+  const STORAGE_VERSION = 3;
 
   const WHATSAPP_NUMBER = "6281914401217";
   const TELEGRAM_USERNAME = "my_bini";
@@ -252,6 +252,20 @@
     }
   ];
 
+  const REQUIRED_DEFAULT_PRODUCT_IDS = [
+    "panel-1gb",
+    "panel-2gb",
+    "panel-3gb",
+    "panel-4gb",
+    "panel-5gb",
+    "panel-6gb",
+    "panel-7gb",
+    "panel-8gb",
+    "panel-9gb",
+    "panel-10gb",
+    "panel-unli"
+  ];
+
   function clone(data) {
     return JSON.parse(JSON.stringify(data));
   }
@@ -367,6 +381,38 @@
       .filter(Boolean);
   }
 
+  function ensureRequiredDefaults(products) {
+    const current = sanitizeProducts(products);
+    const byId = new Map(current.map(function (product) { return [product.id, product]; }));
+    let changed = false;
+
+    INITIAL_PRODUCTS.forEach(function (defaultProduct) {
+      if (!REQUIRED_DEFAULT_PRODUCT_IDS.includes(defaultProduct.id)) return;
+      if (byId.has(defaultProduct.id)) return;
+      current.push(clone(defaultProduct));
+      byId.set(defaultProduct.id, defaultProduct);
+      changed = true;
+    });
+
+    return {
+      products: sanitizeProducts(current),
+      changed: changed
+    };
+  }
+
+  function migrateProductsForVersion(products, version) {
+    const sanitized = sanitizeProducts(products);
+    if (!sanitized.length) {
+      return { products: sanitizeProducts(INITIAL_PRODUCTS), changed: true };
+    }
+
+    const withDefaults = ensureRequiredDefaults(sanitized);
+    return {
+      products: withDefaults.products,
+      changed: withDefaults.changed || Number(version) !== STORAGE_VERSION
+    };
+  }
+
   function createStorageEnvelope(products) {
     return {
       storageVersion: STORAGE_VERSION,
@@ -381,6 +427,7 @@
     try {
       const parsed = JSON.parse(raw);
       const legacy = Array.isArray(parsed);
+      const storageVersion = legacy ? 0 : Number(parsed && parsed.storageVersion) || 0;
       const productsSource = legacy ? parsed : parsed && parsed.products;
       const products = sanitizeProducts(productsSource);
       const sourceLength = Array.isArray(productsSource) ? productsSource.length : 0;
@@ -393,7 +440,7 @@
         return { ok: false, products: [], legacy };
       }
 
-      return { ok: true, products, legacy };
+      return { ok: true, products, legacy, storageVersion };
     } catch (error) {
       return { ok: false, products: [], legacy: false };
     }
@@ -426,16 +473,18 @@
     const current = readProductsFromKey(STORAGE_KEY);
 
     if (current.ok) {
-      if (current.legacy) {
-        writeProductsToKey(STORAGE_KEY, current.products);
+      const migrated = migrateProductsForVersion(current.products, current.storageVersion);
+      if (current.legacy || migrated.changed) {
+        writeProductsToKey(STORAGE_KEY, migrated.products);
       }
-      return clone(current.products);
+      return clone(migrated.products);
     }
 
     const backup = readProductsFromKey(BACKUP_KEY);
     if (backup.ok) {
-      writeProductsToKey(STORAGE_KEY, backup.products);
-      return clone(backup.products);
+      const migratedBackup = migrateProductsForVersion(backup.products, backup.storageVersion);
+      writeProductsToKey(STORAGE_KEY, migratedBackup.products);
+      return clone(migratedBackup.products);
     }
 
     const initial = sanitizeProducts(INITIAL_PRODUCTS);
@@ -466,8 +515,9 @@
     const backup = readProductsFromKey(BACKUP_KEY);
     if (!backup.ok) return getProducts();
 
-    writeProductsToKey(STORAGE_KEY, backup.products);
-    return clone(backup.products);
+    const migratedBackup = migrateProductsForVersion(backup.products, backup.storageVersion);
+    writeProductsToKey(STORAGE_KEY, migratedBackup.products);
+    return clone(migratedBackup.products);
   }
 
   function isAvailable(product) {

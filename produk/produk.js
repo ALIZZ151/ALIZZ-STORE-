@@ -62,6 +62,7 @@
   }
 
   function renderCatalog() {
+    setCheckoutActive(false);
     products = window.ALIZZ_STORE.getProducts();
     groups = buildProductGroups(products);
 
@@ -98,6 +99,8 @@
   }
 
   function renderDetail(groupId, variantId) {
+    setCheckoutActive(false);
+
     const container = document.querySelector("#categorySections");
     const emptyState = document.querySelector("#emptyState");
     if (!container) return;
@@ -109,20 +112,13 @@
       return;
     }
 
-    const selected = group.variants.find(function (item) { return item.id === variantId; }) ||
-      group.variants.find(window.ALIZZ_STORE.isAvailable) ||
-      group.variants[0];
+    const selected = variantId
+      ? group.variants.find(function (item) { return item.id === variantId; }) || null
+      : null;
 
     container.innerHTML = createDetailView(group, selected);
     bindDetailButtons(group, selected);
-    observeProductViews();
-
-    if (window.location.hash === "#order") {
-      window.setTimeout(function () {
-        const detail = document.querySelector("#order");
-        if (detail) detail.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 60);
-    }
+    if (selected) observeProductViews();
   }
 
   function createCategorySection(category, items) {
@@ -192,14 +188,16 @@
 
   function createDetailView(group, selected) {
     const meta = window.ALIZZ_STORE.CATEGORY_META[group.category] || window.ALIZZ_STORE.CATEGORY_META.Lainnya;
-    const soldout = !window.ALIZZ_STORE.isAvailable(selected);
-    const variantLabel = getVariantLabel(group, selected);
-    const message = createOrderMessage(group, selected);
-    const whatsappUrl = createWhatsAppUrl(window.ALIZZ_STORE.WHATSAPP_NUMBER, message);
+    const hasSelected = Boolean(selected);
+    const soldout = hasSelected ? !window.ALIZZ_STORE.isAvailable(selected) : false;
+    const variantLabel = hasSelected ? getVariantLabel(group, selected) : "";
+    const message = hasSelected ? createOrderMessage(group, selected) : "";
+    const whatsappUrl = hasSelected ? createWhatsAppUrl(window.ALIZZ_STORE.WHATSAPP_NUMBER, message) : "#";
     const telegramUrl = "https://t.me/" + window.ALIZZ_STORE.TELEGRAM_USERNAME;
+    const helperText = getVariantHelperText(group);
 
     return `
-      <section class="product-detail-shell reveal" id="order" data-product-id="${escapeHTML(selected.id)}" data-product-name="${escapeHTML(selected.name)}" data-product-category="${escapeHTML(group.category)}">
+      <section class="product-detail-shell reveal" id="productDetail" data-group-id="${escapeHTML(group.id)}" ${hasSelected ? `data-product-id="${escapeHTML(selected.id)}" data-product-name="${escapeHTML(selected.name)}" data-product-category="${escapeHTML(group.category)}"` : ""}>
         <div class="detail-toolbar">
           <button class="btn btn-outline btn-sm back-to-catalog-btn" type="button">← Kembali ke Produk</button>
           <span class="product-badge ${meta.badgeClass}">${escapeHTML(group.category)}</span>
@@ -211,59 +209,73 @@
             <h2>${escapeHTML(group.title)}</h2>
             <p>${escapeHTML(group.description)}</p>
 
+            <div class="variant-intro">
+              <strong>${escapeHTML(helperText)}</strong>
+              <span>Pilih salah satu varian. Harga, stok, benefit, dan tombol order baru muncul setelah varian dipilih.</span>
+            </div>
+
             <div class="variant-selector" aria-label="Pilih varian produk">
               ${group.variants.map(function (variant) {
-                const isSelected = variant.id === selected.id;
+                const isSelected = hasSelected && variant.id === selected.id;
                 const isSoldout = !window.ALIZZ_STORE.isAvailable(variant);
-                return `<button type="button" class="variant-option ${isSelected ? "active" : ""}" data-variant-id="${escapeHTML(variant.id)}" ${isSoldout ? "aria-label=\"Varian habis\"" : ""}>${escapeHTML(getVariantLabel(group, variant))}</button>`;
+                return `<button type="button" class="variant-option ${isSelected ? "active" : ""}" data-variant-id="${escapeHTML(variant.id)}" ${isSoldout ? "disabled aria-disabled=\"true\"" : ""}>${escapeHTML(getVariantLabel(group, variant))}</button>`;
               }).join("")}
             </div>
 
-            <div class="selected-product-card ${soldout ? "soldout" : ""}">
-              <div>
-                <span>Varian Dipilih</span>
-                <h3>${escapeHTML(variantLabel)}</h3>
+            ${hasSelected ? `
+              <div class="selected-product-card ${soldout ? "soldout" : ""}">
+                <div>
+                  <span>Varian Dipilih</span>
+                  <h3>${escapeHTML(variantLabel)}</h3>
+                </div>
+                <strong>${escapeHTML(selected.price)}</strong>
               </div>
-              <strong>${escapeHTML(selected.price)}</strong>
-            </div>
 
-            <div class="detail-facts">
-              <div><span>Stok</span><strong>${Number(selected.stock) <= 0 ? "Habis" : escapeHTML(String(selected.stock))}</strong></div>
-              <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
-              <div><span>Order</span><strong>Manual Admin</strong></div>
-            </div>
+              <div class="detail-facts">
+                <div><span>Stok</span><strong>${Number(selected.stock) <= 0 ? "Habis" : escapeHTML(String(selected.stock))}</strong></div>
+                <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
+                <div><span>Order</span><strong>Manual Admin</strong></div>
+              </div>
 
-            <p class="product-desc detail-desc">${escapeHTML(selected.description)}</p>
+              <p class="product-desc detail-desc">${escapeHTML(selected.description)}</p>
 
-            <ul class="benefit-list detail-benefits">
-              ${(Array.isArray(selected.benefits) ? selected.benefits : []).map(function (benefit) {
-                return `<li>${escapeHTML(benefit)}</li>`;
-              }).join("")}
-            </ul>
+              <ul class="benefit-list detail-benefits">
+                ${(Array.isArray(selected.benefits) ? selected.benefits : []).map(function (benefit) {
+                  return `<li>${escapeHTML(benefit)}</li>`;
+                }).join("")}
+              </ul>
 
-            <div class="detail-actions">
-              <button class="btn ${soldout ? "btn-disabled" : meta.buttonClass} continue-order-btn" type="button" ${soldout ? "disabled" : ""}>Lanjut Order</button>
-              <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
-            </div>
+              <div class="detail-actions">
+                <button class="btn ${soldout ? "btn-disabled" : meta.buttonClass} continue-order-btn" type="button" ${soldout ? "disabled" : ""}>Lanjut Order</button>
+                <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
+              </div>
+            ` : `
+              <div class="variant-required-card" role="status">
+                <strong>${escapeHTML(getVariantEmptyTitle(group))}</strong>
+                <p>Belum ada varian yang dipilih, jadi harga dan checkout belum ditampilkan.</p>
+              </div>
+            `}
           </article>
 
-          <aside class="checkout-panel hidden" id="checkoutPanel" aria-label="Checkout manual ALIZZ STORE">
-            <span class="eyebrow">Checkout Manual</span>
-            <h2>Ringkasan Order</h2>
-            <div class="checkout-summary">
-              <div><span>Produk</span><strong>${escapeHTML(group.title)}</strong></div>
-              <div><span>Varian</span><strong>${escapeHTML(variantLabel)}</strong></div>
-              <div><span>Harga</span><strong>${escapeHTML(selected.price)}</strong></div>
-              <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
-            </div>
-            <p class="checkout-note">Belum ada payment gateway otomatis. Konfirmasi stok dan pembayaran langsung ke admin order.</p>
-            <div class="checkout-actions">
-              <a class="btn btn-primary checkout-wa-btn" href="${escapeHTML(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Order via WhatsApp</a>
-              <a class="btn btn-outline checkout-telegram-btn" href="${escapeHTML(telegramUrl)}" target="_blank" rel="noopener noreferrer">Order via Telegram</a>
-              <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
-              <button class="btn btn-ghost back-to-catalog-btn" type="button">Kembali ke Produk</button>
-            </div>
-          </aside>
+          ${hasSelected ? `
+            <aside class="checkout-panel hidden" id="checkoutPanel" aria-label="Checkout manual ALIZZ STORE">
+              <span class="eyebrow">Checkout Manual</span>
+              <h2>Ringkasan Order</h2>
+              <div class="checkout-summary">
+                <div><span>Produk</span><strong>${escapeHTML(group.title)}</strong></div>
+                <div><span>Varian</span><strong>${escapeHTML(variantLabel)}</strong></div>
+                <div><span>Harga</span><strong>${escapeHTML(selected.price)}</strong></div>
+                <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
+              </div>
+              <p class="checkout-note">Belum ada payment gateway otomatis. Konfirmasi stok dan pembayaran langsung ke admin order.</p>
+              <div class="checkout-actions">
+                <a class="btn btn-primary checkout-wa-btn" href="${escapeHTML(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Order via WhatsApp</a>
+                <a class="btn btn-outline checkout-telegram-btn" href="${escapeHTML(telegramUrl)}" target="_blank" rel="noopener noreferrer">Order via Telegram</a>
+                <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
+                <button class="btn btn-ghost back-to-catalog-btn" type="button">Kembali ke Produk</button>
+              </div>
+            </aside>
+          ` : ""}
         </div>
       </section>
     `;
@@ -282,21 +294,25 @@
   function bindDetailButtons(group, selected) {
     document.querySelectorAll(".variant-option").forEach(function (button) {
       button.addEventListener("click", function () {
+        if (button.disabled) return;
         setDetailRoute(group.id, button.dataset.variantId, false);
-        renderDetail(group.id, button.dataset.variantId);
       });
     });
 
     document.querySelectorAll(".back-to-catalog-btn").forEach(function (button) {
       button.addEventListener("click", function () {
+        setCheckoutActive(false);
         clearDetailRoute(true);
       });
     });
+
+    if (!selected) return;
 
     document.querySelectorAll(".continue-order-btn").forEach(function (button) {
       button.addEventListener("click", function () {
         const checkout = document.querySelector("#checkoutPanel");
         if (!checkout) return;
+        setCheckoutActive(true);
         checkout.classList.remove("hidden");
         checkout.scrollIntoView({ behavior: "smooth", block: "center" });
       });
@@ -374,6 +390,8 @@
   function sortVariants(category, variants) {
     return variants.slice().sort(function (a, b) {
       if (category === "Panel") return panelRank(a) - panelRank(b);
+      if (category === "Membership") return membershipRank(a) - membershipRank(b);
+      if (category === "Sewa Bot") return sewaBotRank(a) - sewaBotRank(b);
       return String(a.name).localeCompare(String(b.name), "id");
     });
   }
@@ -383,6 +401,22 @@
     if (name.includes("unli")) return 999;
     const match = name.match(/(\d+)\s*gb/);
     return match ? Number(match[1]) : 500;
+  }
+
+  function membershipRank(product) {
+    const name = String(product.name || "").toLowerCase();
+    const order = ["reseller", "adp", "pt", "tk", "ceo"];
+    const index = order.findIndex(function (key) { return name.includes(key); });
+    return index >= 0 ? index : 500;
+  }
+
+  function sewaBotRank(product) {
+    const name = String(product.name || "").toLowerCase();
+    if (name.includes("harian") || name.includes("daily")) return 1;
+    if (name.includes("minggu") || name.includes("weekly")) return 2;
+    if (name.includes("bulan") || name.includes("monthly")) return 3;
+    if (name.includes("tahun") || name.includes("year")) return 4;
+    return 500;
   }
 
   function collectBenefits(variants) {
@@ -435,12 +469,12 @@
     if (variantId) params.set("variant", variantId);
     else params.delete("variant");
 
-    const nextUrl = window.location.pathname + "?" + params.toString() + "#order";
+    const nextUrl = window.location.pathname + "?" + params.toString();
     window.history.pushState({}, "", nextUrl);
     routeCatalog();
     if (scrollTop) {
       window.setTimeout(function () {
-        const detail = document.querySelector("#order");
+        const detail = document.querySelector("#productDetail");
         if (detail) detail.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 60);
     }
@@ -451,7 +485,26 @@
     if (window.location.search || window.location.hash) {
       window.history.pushState({}, "", base);
     }
+    setCheckoutActive(false);
     if (renderAfter) renderCatalog();
+  }
+
+  function setCheckoutActive(active) {
+    if (!document.body) return;
+    document.body.classList.toggle("checkout-open", Boolean(active));
+  }
+
+  function getVariantHelperText(group) {
+    if (group.category === "Panel") return "Pilih RAM panel dulu sebelum lanjut order.";
+    if (group.category === "Membership") return "Pilih rank membership dulu sebelum lanjut order.";
+    if (group.category === "Sewa Bot") return "Pilih durasi sewa bot dulu sebelum lanjut order.";
+    if (group.category === "Script") return "Pilih varian script dulu sebelum lanjut order.";
+    return "Pilih varian dulu sebelum lanjut order.";
+  }
+
+  function getVariantEmptyTitle(group) {
+    if (group.category === "Panel") return "Pilih varian dulu, Bos.";
+    return "Pilih varian dulu, Bos.";
   }
 
   function createOrderMessage(group, product) {

@@ -3687,7 +3687,6 @@ body[data-page="produk"] .product-card {
 
   body[data-page="demo"] .bottom-nav a[data-target="demo"],
   body[data-page="produk"] .bottom-nav a[data-target="produk"],
-  body[data-page="produk"] .bottom-nav a[data-target="order"],
   body[data-page="chatbot"] .bottom-nav a[data-target="chatbot"],
   body[data-page="admin"] .bottom-nav a[data-target="admin"] {
     color: white;
@@ -3787,4 +3786,170 @@ body[data-page="produk"] .product-card {
 .admin-login-card > * {
   position: relative;
   z-index: 1;
+}
+
+/* ===== ALIZZ STORE V3.1: Clean home, single bottom-nav active, manual variant flow ===== */
+.home-collection-card {
+  align-self: stretch;
+}
+
+.home-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.home-mini-grid a {
+  min-height: 92px;
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.58);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.home-mini-grid a:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34, 211, 238, 0.36);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.home-mini-grid strong {
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.home-mini-grid span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.home-feature-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-feature-grid .feature-card span {
+  width: auto;
+  height: auto;
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--cyan);
+  font-weight: 900;
+}
+
+.clean-steps-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.variant-intro,
+.variant-required-card,
+.checkout-panel-placeholder {
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.variant-intro {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.variant-intro strong,
+.variant-required-card strong {
+  color: var(--text);
+}
+
+.variant-intro span,
+.variant-required-card p {
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.variant-required-card {
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.variant-required-card p {
+  margin-top: 6px;
+}
+
+.variant-option:disabled,
+.variant-option[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.42;
+  text-decoration: line-through;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.checkout-panel-placeholder {
+  position: relative;
+  top: auto;
+  min-height: 220px;
+}
+
+@media (max-width: 1040px) {
+  .home-feature-grid,
+  .clean-steps-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  body[data-page="produk"]:not(.checkout-open) .bottom-nav a[data-target="produk"],
+  body[data-page="produk"].checkout-open .bottom-nav a[data-target="order"],
+  body[data-page="demo"] .bottom-nav a[data-target="demo"],
+  body[data-page="chatbot"] .bottom-nav a[data-target="chatbot"],
+  body[data-page="admin"] .bottom-nav a[data-target="admin"] {
+    color: white;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(59, 130, 246, 0.18), rgba(139, 92, 246, 0.2));
+    box-shadow: 0 12px 28px rgba(34, 211, 238, 0.14);
+  }
+
+  body[data-page="produk"].checkout-open .bottom-nav a[data-target="produk"],
+  body[data-page="produk"]:not(.checkout-open) .bottom-nav a[data-target="order"] {
+    color: var(--muted);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .floating-widget-stack {
+    right: 12px !important;
+    bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+    z-index: 90;
+  }
+
+  main {
+    padding-bottom: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-mini-grid,
+  .home-feature-grid,
+  .clean-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-mini-grid a {
+    min-height: 78px;
+  }
+
+  .floating-widget-stack {
+    bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+.product-detail-shell:not([data-product-id]) .detail-grid {
+  grid-template-columns: 1fr;
 }

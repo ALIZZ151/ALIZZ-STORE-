@@ -18,12 +18,7 @@ const ALLOWED_EVENTS = new Set([
   "order_telegram_click",
   "developer_whatsapp_click",
   "testimonial_channel_click",
-  "notification_prompt_shown",
-  "notification_permission_granted",
-  "notification_permission_denied",
-  "notification_permission_skipped",
   "chatbot_open",
-  "voucher_apply",
   "promo_popup_click"
 ]);
 

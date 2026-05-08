@@ -1,35 +1,16 @@
-ALIZZ STORE - SEO + Push Modal Tengah + Link Preview
+ALIZZ STORE - Catatan Update V3
 
-FILE YANG DIUBAH / DITAMBAH:
-- demo/index.html
-- produk/index.html
-- chatbot/index.html
-- demo/style.css
-- demo/script.js
-- api/notifications/public-key.js
-- service-worker.js
-- robots.txt
-- sitemap.xml
-- package.json
-- assets/alizz-og-image.jpg
+Fitur notifikasi/push promo sudah dihapus dari project.
+File ini dipertahankan hanya sebagai catatan migrasi agar tidak membingungkan saat deploy ulang.
 
-CARA PASANG:
-1. Extract ZIP.
-2. Copy semua isi folder ke root project GitHub kamu.
-3. Replace file yang sama.
-4. Commit + push.
-5. Redeploy Vercel.
+Yang aktif sekarang:
+- SEO dan meta preview tetap dipertahankan.
+- Katalog produk memakai flow paket/group dan checkout manual WhatsApp/Telegram.
+- Admin fokus ke kelola produk, import/export/reset, dan analytics aman.
+- Bottom navigation mobile menggantikan hamburger/drawer.
 
-CEK SETELAH DEPLOY:
-- https://www.alizz-shop.biz.id/robots.txt
-- https://www.alizz-shop.biz.id/sitemap.xml
-- https://www.alizz-shop.biz.id/assets/alizz-og-image.jpg
-- Buka homepage, tunggu 3 detik untuk popup izin notifikasi.
-
-CATATAN GOOGLE:
-Google tidak bisa dijamin langsung nomor 1. Setelah deploy, submit sitemap di Google Search Console:
-https://www.alizz-shop.biz.id/sitemap.xml
-
-CATATAN WHATSAPP PREVIEW:
-Kalau preview gambar belum berubah, WhatsApp kadang cache lama. Tunggu beberapa jam atau coba kirim link dengan query, contoh:
-https://www.alizz-shop.biz.id/?v=2
+Deploy singkat:
+1. Pastikan env admin dan Supabase sesuai .env.example.
+2. Deploy via Vercel/GitHub seperti biasa.
+3. Cek /, /produk/, /chatbot/, dan /admin/.
+4. Pastikan order WhatsApp/Telegram mengarah ke kontak order, bukan kontak developer.

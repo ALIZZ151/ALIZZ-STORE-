@@ -8,9 +8,7 @@
     "dev": "npx vercel dev",
     "serve": "npx serve ."
   },
-  "dependencies": {
-    "web-push": "^3.6.7"
-  },
+  "dependencies": {},
   "keywords": ["static", "digital-store", "alizz-store"],
   "license": "UNLICENSED"
 }

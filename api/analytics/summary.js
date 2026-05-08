@@ -77,12 +77,7 @@ module.exports = async function handler(req, res) {
         telegramOrderClicks: countWhere(events, (event) => event.event_name === "order_telegram_click"),
         developerWhatsappClicks: countWhere(events, (event) => event.event_name === "developer_whatsapp_click"),
         testimonialChannelClicks: countWhere(events, (event) => event.event_name === "testimonial_channel_click"),
-        notificationPromptShown: countWhere(events, (event) => event.event_name === "notification_prompt_shown"),
-        notificationGranted: countWhere(events, (event) => event.event_name === "notification_permission_granted"),
-        notificationDenied: countWhere(
-          events,
-          (event) => event.event_name === "notification_permission_denied" || event.event_name === "notification_permission_skipped"
-        )
+        chatbotOpen: countWhere(events, (event) => event.event_name === "chatbot_open")
       },
       topProductsViewed: topBy(events, "product_view", "product_id", 10),
       topOrderClicks: topBy(events, "order_whatsapp_click", "product_id", 10)

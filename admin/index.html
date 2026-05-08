@@ -45,41 +45,32 @@
 
       <div class="nav-actions">
         <a href="/produk/" class="btn btn-outline btn-sm">Lihat Produk</a>
-        <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu" aria-controls="mobileMenu" aria-expanded="false">
-          <span></span><span></span><span></span>
-        </button>
       </div>
     </div>
   </header>
 
-  <div class="mobile-overlay" id="mobileOverlay"></div>
-  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
-    <div class="mobile-menu-head">
-      <a href="/" class="brand">
-        <span class="brand-logo brand-avatar">
-          <img src="/alizz-pp.jpg" alt="ALIZZ STORE Profile" />
-        </span>
-        <span class="brand-text">
-          <span class="brand-title-row">
-            <strong>ALIZZ STORE</strong>
-            <span class="verified-badge" aria-label="Terverifikasi" title="Terverifikasi">
-              <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#3b82f6" />
-                <path d="M7.25 12.2l3.05 3.05 6.45-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </span>
-          </span>
-          <small>Mobile Menu</small>
-        </span>
-      </a>
-      <button class="mobile-close" id="mobileCloseBtn" aria-label="Tutup menu">×</button>
-    </div>
-    <nav class="mobile-links" aria-label="Navigasi mobile">
-      <a href="/"><span>⌂</span>Home</a>
-      <a href="/produk/"><span>□</span>Produk</a>
-      <a href="/admin/" class="active mobile-cta"><span>⚙</span>Admin</a>
-    </nav>
-  </aside>
+  <nav class="bottom-nav" aria-label="Navigasi cepat mobile">
+    <a href="/" data-target="demo" aria-label="Buka Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8v8.7a1.5 1.5 0 0 1-1.5 1.5h-4.2v-6.1H8.7V21H4.5A1.5 1.5 0 0 1 3 19.5v-8.7Z"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="/produk/" data-target="produk" aria-label="Buka Katalog Produk">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.8A2.8 2.8 0 0 1 6.8 3h10.4A2.8 2.8 0 0 1 20 5.8v12.4a2.8 2.8 0 0 1-2.8 2.8H6.8A2.8 2.8 0 0 1 4 18.2V5.8Zm3 1.1v4.2h4.2V6.9H7Zm5.8 0v4.2H17V6.9h-4.2ZM7 12.7v4.4h4.2v-4.4H7Zm5.8 0v4.4H17v-4.4h-4.2Z"/></svg>
+      <span>Produk</span>
+    </a>
+    <a href="/produk/#order" data-target="order" aria-label="Mulai Order Produk">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2.8 4.8 13.1c-.7.9-.1 2.2 1.1 2.2h5.1l-.8 5.4c-.2 1.3 1.4 2 2.2 1l7.9-10.5c.7-.9 0-2.1-1.1-2.1h-4.9l1.1-5.2c.2-1.2-1.4-2-2.2-1.1Z"/></svg>
+      <span>Order</span>
+    </a>
+    <a href="/chatbot/" data-target="chatbot" aria-label="Buka Bantuan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.8A3.8 3.8 0 0 1 7.8 2h8.4A3.8 3.8 0 0 1 20 5.8v5.6a3.8 3.8 0 0 1-3.8 3.8h-4.7l-4.4 4.1c-.8.7-2.1.2-2.1-.9v-3.5A3.8 3.8 0 0 1 4 11.4V5.8Zm5 3.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm3.1 0a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm3.1 0a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>
+      <span>Bantuan</span>
+    </a>
+    <a href="/admin/" data-target="admin" aria-label="Buka Admin">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 5 5.1v5.6c0 4.6 2.9 8.8 7 10.3 4.1-1.5 7-5.7 7-10.3V5.1L12 2Zm0 4.1a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2Zm0 8.2c2.5 0 4.7 1.3 5.2 3.1A8.7 8.7 0 0 1 12 19.1a8.7 8.7 0 0 1-5.2-1.7c.5-1.8 2.7-3.1 5.2-3.1Z"/></svg>
+      <span>Admin</span>
+    </a>
+  </nav>
 
   <main>
     <section class="admin-login-screen" id="adminLoginScreen">

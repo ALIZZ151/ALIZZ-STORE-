@@ -1,6 +1,10 @@
 (function () {
+  "use strict";
+
   let products = [];
+  let groups = [];
   let activeCategory = "Semua";
+  const viewedGroupIds = new Set();
   const viewedProductIds = new Set();
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -8,41 +12,64 @@
     if (!window.ALIZZ_STORE || typeof window.ALIZZ_STORE.getProducts !== "function") return;
 
     products = window.ALIZZ_STORE.getProducts();
+    groups = buildProductGroups(products);
     setupCatalog();
     setupYear();
-    renderCatalog();
-  });
+    routeCatalog();
 
+    window.addEventListener("popstate", routeCatalog);
+  });
 
   function setupCatalog() {
     const searchInput = document.querySelector("#searchInput");
     const filterTabs = document.querySelector("#filterTabs");
     if (!searchInput || !filterTabs) return;
 
-    searchInput.addEventListener("input", renderCatalog);
+    searchInput.addEventListener("input", function () {
+      clearDetailRoute(false);
+      renderCatalog();
+    });
 
     filterTabs.addEventListener("click", function (event) {
       const button = event.target.closest(".filter-btn");
       if (!button) return;
 
-      activeCategory = button.dataset.category;
+      activeCategory = button.dataset.category || "Semua";
 
       document.querySelectorAll(".filter-btn").forEach(function (btn) {
-        btn.classList.remove("active");
+        btn.classList.toggle("active", btn === button);
       });
 
-      button.classList.add("active");
+      clearDetailRoute(false);
       renderCatalog();
     });
   }
 
+  function routeCatalog() {
+    products = window.ALIZZ_STORE.getProducts();
+    groups = buildProductGroups(products);
+
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get("group");
+    const variantId = params.get("variant");
+
+    if (groupId) {
+      renderDetail(groupId, variantId);
+      return;
+    }
+
+    renderCatalog();
+  }
+
   function renderCatalog() {
     products = window.ALIZZ_STORE.getProducts();
+    groups = buildProductGroups(products);
 
     const container = document.querySelector("#categorySections");
     const emptyState = document.querySelector("#emptyState");
     const searchInput = document.querySelector("#searchInput");
     if (!container || !emptyState || !searchInput) return;
+
     const keyword = searchInput.value.trim().toLowerCase();
     const categories = activeCategory === "Semua" ? window.ALIZZ_STORE.CATEGORY_ORDER : [activeCategory];
 
@@ -50,17 +77,9 @@
     let renderedCount = 0;
 
     categories.forEach(function (category) {
-      const items = products.filter(function (product) {
-        const normalized = window.ALIZZ_STORE.normalizeCategory(product.category);
-        const searchable = [
-          product.name,
-          normalized,
-          product.price,
-          product.description,
-          Array.isArray(product.benefits) ? product.benefits.join(" ") : ""
-        ].join(" ").toLowerCase();
-
-        return normalized === category && searchable.includes(keyword);
+      const items = groups.filter(function (group) {
+        if (group.category !== category) return false;
+        return getGroupSearchText(group).includes(keyword);
       });
 
       if (items.length === 0) return;
@@ -71,134 +90,428 @@
 
     container.innerHTML = html;
 
-    if (renderedCount === 0) {
-      emptyState.classList.remove("hidden");
-    } else {
-      emptyState.classList.add("hidden");
+    if (renderedCount === 0) emptyState.classList.remove("hidden");
+    else emptyState.classList.add("hidden");
+
+    bindCatalogButtons();
+    observeGroupViews();
+  }
+
+  function renderDetail(groupId, variantId) {
+    const container = document.querySelector("#categorySections");
+    const emptyState = document.querySelector("#emptyState");
+    if (!container) return;
+    if (emptyState) emptyState.classList.add("hidden");
+
+    const group = groups.find(function (item) { return item.id === groupId; });
+    if (!group) {
+      clearDetailRoute(true);
+      return;
     }
 
-    bindOrderButtons();
+    const selected = group.variants.find(function (item) { return item.id === variantId; }) ||
+      group.variants.find(window.ALIZZ_STORE.isAvailable) ||
+      group.variants[0];
+
+    container.innerHTML = createDetailView(group, selected);
+    bindDetailButtons(group, selected);
     observeProductViews();
+
+    if (window.location.hash === "#order") {
+      window.setTimeout(function () {
+        const detail = document.querySelector("#order");
+        if (detail) detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    }
   }
 
   function createCategorySection(category, items) {
     const meta = window.ALIZZ_STORE.CATEGORY_META[category] || window.ALIZZ_STORE.CATEGORY_META.Lainnya;
 
     return `
-      <section class="product-category-section">
+      <section class="product-category-section reveal">
         <div class="category-head">
           <div>
             <span class="category-kicker">${escapeHTML(meta.kicker)}</span>
             <h2>${escapeHTML(meta.title)}</h2>
             <p>${escapeHTML(meta.description)}</p>
           </div>
-          <span class="category-count">${items.length} produk</span>
+          <span class="category-count">${items.length} paket</span>
         </div>
-        <div class="products-grid">
-          ${items.map(createProductCard).join("")}
+        <div class="products-grid product-group-grid">
+          ${items.map(createGroupCard).join("")}
         </div>
       </section>
     `;
   }
 
-  function createProductCard(product) {
-    const category = window.ALIZZ_STORE.normalizeCategory(product.category);
-    const meta = window.ALIZZ_STORE.CATEGORY_META[category] || window.ALIZZ_STORE.CATEGORY_META.Lainnya;
-    const soldout = !window.ALIZZ_STORE.isAvailable(product);
-    const benefits = Array.isArray(product.benefits) ? product.benefits.slice(0, 5) : [];
+  function createGroupCard(group) {
+    const meta = window.ALIZZ_STORE.CATEGORY_META[group.category] || window.ALIZZ_STORE.CATEGORY_META.Lainnya;
+    const availableCount = group.variants.filter(window.ALIZZ_STORE.isAvailable).length;
+    const soldout = availableCount === 0;
+    const highlightBenefits = group.benefits.slice(0, 4);
+    const stockTotal = group.variants.reduce(function (sum, product) {
+      return sum + Number(product.stock || 0);
+    }, 0);
 
     return `
-      <article class="product-card ${soldout ? "soldout" : ""}" data-product-id="${escapeHTML(product.id)}" data-product-name="${escapeHTML(product.name)}" data-product-category="${escapeHTML(category)}">
+      <article class="product-card product-group-card ${soldout ? "soldout" : ""}" data-group-id="${escapeHTML(group.id)}" data-product-category="${escapeHTML(group.category)}" data-product-name="${escapeHTML(group.title)}">
         <div class="product-top">
-          <span class="product-badge ${meta.badgeClass}">${escapeHTML(category)}</span>
-          <span class="product-status ${soldout ? "soldout" : "available"}">
-            ${soldout ? "Habis" : "Tersedia"}
-          </span>
+          <span class="product-badge ${meta.badgeClass}">${escapeHTML(group.category)}</span>
+          <span class="product-status ${soldout ? "soldout" : "available"}">${soldout ? "Habis" : availableCount + " varian ready"}</span>
         </div>
 
-        <h3>${escapeHTML(product.name)}</h3>
-        <div class="price">${escapeHTML(product.price)}</div>
-        <p class="product-desc">${escapeHTML(product.description)}</p>
+        <h3>${escapeHTML(group.title)}</h3>
+        <div class="price">${escapeHTML(getGroupPriceLabel(group))}</div>
+        <p class="product-desc">${escapeHTML(group.description)}</p>
 
-        <ul class="benefit-list">
-          ${benefits.map(function (benefit) {
+        <div class="variant-preview" aria-label="Preview varian ${escapeHTML(group.title)}">
+          ${group.variants.slice(0, 6).map(function (variant) {
+            return `<span>${escapeHTML(getVariantLabel(group, variant))}</span>`;
+          }).join("")}
+          ${group.variants.length > 6 ? `<span>+${group.variants.length - 6}</span>` : ""}
+        </div>
+
+        <ul class="benefit-list compact">
+          ${highlightBenefits.map(function (benefit) {
             return `<li>${escapeHTML(benefit)}</li>`;
           }).join("")}
         </ul>
 
         <div class="product-meta">
-          <span>Stok</span>
-          <strong>${Number(product.stock) <= 0 ? "Habis" : escapeHTML(String(product.stock))}</strong>
+          <span>Total Stok</span>
+          <strong>${stockTotal <= 0 ? "Habis" : escapeHTML(String(stockTotal))}</strong>
         </div>
 
-        <button
-          class="btn ${soldout ? "btn-disabled" : meta.buttonClass} order-btn"
-          data-id="${escapeHTML(product.id)}"
-          ${soldout ? "disabled" : ""}
-        >
-          ${soldout ? "Stok Habis" : "Beli Sekarang"}
+        <button class="btn ${soldout ? "btn-disabled" : meta.buttonClass} view-group-btn" data-group-id="${escapeHTML(group.id)}" ${soldout ? "disabled" : ""}>
+          ${soldout ? "Stok Habis" : "Lihat Paket"}
         </button>
       </article>
     `;
   }
 
-  function bindOrderButtons() {
-    document.querySelectorAll(".order-btn").forEach(function (button) {
+  function createDetailView(group, selected) {
+    const meta = window.ALIZZ_STORE.CATEGORY_META[group.category] || window.ALIZZ_STORE.CATEGORY_META.Lainnya;
+    const soldout = !window.ALIZZ_STORE.isAvailable(selected);
+    const variantLabel = getVariantLabel(group, selected);
+    const message = createOrderMessage(group, selected);
+    const whatsappUrl = createWhatsAppUrl(window.ALIZZ_STORE.WHATSAPP_NUMBER, message);
+    const telegramUrl = "https://t.me/" + window.ALIZZ_STORE.TELEGRAM_USERNAME;
+
+    return `
+      <section class="product-detail-shell reveal" id="order" data-product-id="${escapeHTML(selected.id)}" data-product-name="${escapeHTML(selected.name)}" data-product-category="${escapeHTML(group.category)}">
+        <div class="detail-toolbar">
+          <button class="btn btn-outline btn-sm back-to-catalog-btn" type="button">← Kembali ke Produk</button>
+          <span class="product-badge ${meta.badgeClass}">${escapeHTML(group.category)}</span>
+        </div>
+
+        <div class="detail-grid">
+          <article class="detail-main-card">
+            <span class="eyebrow">Detail Paket</span>
+            <h2>${escapeHTML(group.title)}</h2>
+            <p>${escapeHTML(group.description)}</p>
+
+            <div class="variant-selector" aria-label="Pilih varian produk">
+              ${group.variants.map(function (variant) {
+                const isSelected = variant.id === selected.id;
+                const isSoldout = !window.ALIZZ_STORE.isAvailable(variant);
+                return `<button type="button" class="variant-option ${isSelected ? "active" : ""}" data-variant-id="${escapeHTML(variant.id)}" ${isSoldout ? "aria-label=\"Varian habis\"" : ""}>${escapeHTML(getVariantLabel(group, variant))}</button>`;
+              }).join("")}
+            </div>
+
+            <div class="selected-product-card ${soldout ? "soldout" : ""}">
+              <div>
+                <span>Varian Dipilih</span>
+                <h3>${escapeHTML(variantLabel)}</h3>
+              </div>
+              <strong>${escapeHTML(selected.price)}</strong>
+            </div>
+
+            <div class="detail-facts">
+              <div><span>Stok</span><strong>${Number(selected.stock) <= 0 ? "Habis" : escapeHTML(String(selected.stock))}</strong></div>
+              <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
+              <div><span>Order</span><strong>Manual Admin</strong></div>
+            </div>
+
+            <p class="product-desc detail-desc">${escapeHTML(selected.description)}</p>
+
+            <ul class="benefit-list detail-benefits">
+              ${(Array.isArray(selected.benefits) ? selected.benefits : []).map(function (benefit) {
+                return `<li>${escapeHTML(benefit)}</li>`;
+              }).join("")}
+            </ul>
+
+            <div class="detail-actions">
+              <button class="btn ${soldout ? "btn-disabled" : meta.buttonClass} continue-order-btn" type="button" ${soldout ? "disabled" : ""}>Lanjut Order</button>
+              <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
+            </div>
+          </article>
+
+          <aside class="checkout-panel hidden" id="checkoutPanel" aria-label="Checkout manual ALIZZ STORE">
+            <span class="eyebrow">Checkout Manual</span>
+            <h2>Ringkasan Order</h2>
+            <div class="checkout-summary">
+              <div><span>Produk</span><strong>${escapeHTML(group.title)}</strong></div>
+              <div><span>Varian</span><strong>${escapeHTML(variantLabel)}</strong></div>
+              <div><span>Harga</span><strong>${escapeHTML(selected.price)}</strong></div>
+              <div><span>Status</span><strong>${soldout ? "Habis" : "Tersedia"}</strong></div>
+            </div>
+            <p class="checkout-note">Belum ada payment gateway otomatis. Konfirmasi stok dan pembayaran langsung ke admin order.</p>
+            <div class="checkout-actions">
+              <a class="btn btn-primary checkout-wa-btn" href="${escapeHTML(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Order via WhatsApp</a>
+              <a class="btn btn-outline checkout-telegram-btn" href="${escapeHTML(telegramUrl)}" target="_blank" rel="noopener noreferrer">Order via Telegram</a>
+              <button class="btn btn-outline js-copy-dana-detail" type="button">Salin Nomor DANA</button>
+              <button class="btn btn-ghost back-to-catalog-btn" type="button">Kembali ke Produk</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    `;
+  }
+
+  function bindCatalogButtons() {
+    document.querySelectorAll(".view-group-btn").forEach(function (button) {
       button.addEventListener("click", function () {
-        const product = products.find(function (item) {
-          return item.id === button.dataset.id;
-        });
-
-        if (!product || !window.ALIZZ_STORE.isAvailable(product)) return;
-
-        trackAnalytics("order_whatsapp_click", {
-          source: "product_card",
-          productId: product.id,
-          productName: product.name,
-          productCategory: window.ALIZZ_STORE.normalizeCategory(product.category),
-          productPrice: product.price
-        });
-
-        const message = `Halo admin ALIZZ STORE, saya mau order ${product.name} dengan harga ${product.price}. Apakah masih tersedia?`;
-        window.open(`https://wa.me/${window.ALIZZ_STORE.WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
+        const groupId = button.dataset.groupId;
+        if (!groupId) return;
+        setDetailRoute(groupId, null, true);
       });
     });
   }
 
-  function observeProductViews() {
-    const cards = Array.from(document.querySelectorAll(".product-card[data-product-id]"));
+  function bindDetailButtons(group, selected) {
+    document.querySelectorAll(".variant-option").forEach(function (button) {
+      button.addEventListener("click", function () {
+        setDetailRoute(group.id, button.dataset.variantId, false);
+        renderDetail(group.id, button.dataset.variantId);
+      });
+    });
+
+    document.querySelectorAll(".back-to-catalog-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        clearDetailRoute(true);
+      });
+    });
+
+    document.querySelectorAll(".continue-order-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const checkout = document.querySelector("#checkoutPanel");
+        if (!checkout) return;
+        checkout.classList.remove("hidden");
+        checkout.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+
+    document.querySelectorAll(".checkout-wa-btn").forEach(function (link) {
+      link.addEventListener("click", function () {
+        trackAnalytics("order_whatsapp_click", {
+          source: "checkout_manual",
+          productId: selected.id,
+          productName: selected.name,
+          productCategory: group.category,
+          productPrice: selected.price,
+          variant: getVariantLabel(group, selected)
+        });
+      });
+    });
+
+    document.querySelectorAll(".checkout-telegram-btn").forEach(function (link) {
+      link.addEventListener("click", function () {
+        trackAnalytics("order_telegram_click", {
+          source: "checkout_manual",
+          productId: selected.id,
+          productName: selected.name,
+          productCategory: group.category,
+          productPrice: selected.price,
+          variant: getVariantLabel(group, selected)
+        });
+      });
+    });
+
+    document.querySelectorAll(".js-copy-dana-detail").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        await copyText(window.ALIZZ_STORE.DANA_NUMBER);
+        showToast("Nomor DANA berhasil disalin.");
+      });
+    });
+  }
+
+  function buildProductGroups(productList) {
+    const categorized = window.ALIZZ_STORE.CATEGORY_ORDER.reduce(function (result, category) {
+      result[category] = [];
+      return result;
+    }, {});
+
+    productList.forEach(function (product) {
+      const category = window.ALIZZ_STORE.normalizeCategory(product.category);
+      if (!categorized[category]) categorized[category] = [];
+      categorized[category].push(product);
+    });
+
+    const result = [];
+    pushGroup(result, "panel-pterodactyl", "Paket Panel Pterodactyl", "Pilih RAM 1GB sampai UNLI sesuai kebutuhan run bot dan script.", "Panel", categorized.Panel);
+    pushGroup(result, "membership-panel", "Membership Panel", "Pilih rank reseller sampai CEO buat mulai jualan panel sendiri.", "Membership", categorized.Membership);
+    pushGroup(result, "sewa-bot-whatsapp", "Sewa Bot WhatsApp", "Pilih durasi sewa bot sesuai kebutuhan grup, promosi, atau usaha.", "Sewa Bot", categorized["Sewa Bot"]);
+    pushGroup(result, "script-bot-whatsapp", "Paket Script Bot", "Script bot WhatsApp siap pakai, tinggal pilih varian yang cocok.", "Script", categorized.Script);
+    pushGroup(result, "produk-digital-lainnya", "Produk Digital Lainnya", "Produk custom dari admin seperti jasa, APK, atau kebutuhan digital lain.", "Lainnya", categorized.Lainnya);
+
+    return result.filter(function (group) { return group.variants.length > 0; });
+  }
+
+  function pushGroup(result, id, title, description, category, variants) {
+    const cleanVariants = Array.isArray(variants) ? variants.slice() : [];
+    if (!cleanVariants.length) return;
+    result.push({
+      id,
+      title,
+      description,
+      category,
+      variants: sortVariants(category, cleanVariants),
+      benefits: collectBenefits(cleanVariants)
+    });
+  }
+
+  function sortVariants(category, variants) {
+    return variants.slice().sort(function (a, b) {
+      if (category === "Panel") return panelRank(a) - panelRank(b);
+      return String(a.name).localeCompare(String(b.name), "id");
+    });
+  }
+
+  function panelRank(product) {
+    const name = String(product.name || "").toLowerCase();
+    if (name.includes("unli")) return 999;
+    const match = name.match(/(\d+)\s*gb/);
+    return match ? Number(match[1]) : 500;
+  }
+
+  function collectBenefits(variants) {
+    const used = new Set();
+    const result = [];
+    variants.forEach(function (product) {
+      (Array.isArray(product.benefits) ? product.benefits : []).forEach(function (benefit) {
+        const clean = String(benefit || "").trim();
+        const key = clean.toLowerCase();
+        if (!clean || used.has(key)) return;
+        used.add(key);
+        result.push(clean);
+      });
+    });
+    return result.slice(0, 8);
+  }
+
+  function getVariantLabel(group, product) {
+    const name = String(product.name || "").trim();
+    if (group.category === "Panel") {
+      const match = name.match(/(\d+\s*GB|UNLI)/i);
+      return match ? match[1].replace(/\s+/g, "").toUpperCase() : name;
+    }
+    if (group.category === "Membership") return name.replace(/^membership\s*/i, "").trim() || name;
+    if (group.category === "Sewa Bot") return name.replace(/^sewa\s*bot\s*/i, "").trim() || name;
+    return name;
+  }
+
+  function getGroupPriceLabel(group) {
+    const available = group.variants.filter(window.ALIZZ_STORE.isAvailable);
+    const variants = available.length ? available : group.variants;
+    if (!variants.length) return "Hubungi Admin";
+    if (variants.length === 1) return variants[0].price;
+    return "Mulai " + variants[0].price;
+  }
+
+  function getGroupSearchText(group) {
+    return [
+      group.title,
+      group.category,
+      group.description,
+      group.variants.map(function (variant) { return variant.name + " " + variant.price + " " + variant.description; }).join(" "),
+      group.benefits.join(" ")
+    ].join(" ").toLowerCase();
+  }
+
+  function setDetailRoute(groupId, variantId, scrollTop) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("group", groupId);
+    if (variantId) params.set("variant", variantId);
+    else params.delete("variant");
+
+    const nextUrl = window.location.pathname + "?" + params.toString() + "#order";
+    window.history.pushState({}, "", nextUrl);
+    routeCatalog();
+    if (scrollTop) {
+      window.setTimeout(function () {
+        const detail = document.querySelector("#order");
+        if (detail) detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    }
+  }
+
+  function clearDetailRoute(renderAfter) {
+    const base = window.location.pathname;
+    if (window.location.search || window.location.hash) {
+      window.history.pushState({}, "", base);
+    }
+    if (renderAfter) renderCatalog();
+  }
+
+  function createOrderMessage(group, product) {
+    const variant = getVariantLabel(group, product);
+    return `Halo admin ALIZZ STORE, saya mau order ${group.title} varian ${variant} dengan harga ${product.price}. Apakah masih tersedia?`;
+  }
+
+  function createWhatsAppUrl(number, message) {
+    return "https://wa.me/" + number + "?text=" + encodeURIComponent(message);
+  }
+
+  function observeGroupViews() {
+    const cards = Array.from(document.querySelectorAll(".product-group-card[data-group-id]"));
     if (!cards.length) return;
 
     if (!("IntersectionObserver" in window)) {
-      cards.slice(0, 8).forEach(function (card) {
-        trackProductViewFromCard(card);
-      });
+      cards.slice(0, 8).forEach(trackGroupViewFromCard);
       return;
     }
 
     const observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (!entry.isIntersecting || entry.intersectionRatio < 0.45) return;
-        trackProductViewFromCard(entry.target);
+        trackGroupViewFromCard(entry.target);
         observer.unobserve(entry.target);
       });
     }, { threshold: [0.45] });
 
     cards.forEach(function (card) {
-      const id = card.dataset.productId;
-      if (!id || viewedProductIds.has(id)) return;
+      const id = card.dataset.groupId;
+      if (!id || viewedGroupIds.has(id)) return;
       observer.observe(card);
     });
   }
 
-  function trackProductViewFromCard(card) {
+  function observeProductViews() {
+    const cards = Array.from(document.querySelectorAll(".product-detail-shell[data-product-id]"));
+    if (!cards.length) return;
+
+    cards.forEach(function (card) {
+      const id = card.dataset.productId;
+      if (!id || viewedProductIds.has(id)) return;
+      viewedProductIds.add(id);
+      trackAnalytics("product_view", {
+        source: "product_detail_open",
+        productId: id,
+        productName: card.dataset.productName || "",
+        productCategory: card.dataset.productCategory || ""
+      });
+    });
+  }
+
+  function trackGroupViewFromCard(card) {
     if (!card || !card.dataset) return;
-    const id = card.dataset.productId;
-    if (!id || viewedProductIds.has(id)) return;
-    viewedProductIds.add(id);
+    const id = card.dataset.groupId;
+    if (!id || viewedGroupIds.has(id)) return;
+    viewedGroupIds.add(id);
 
     trackAnalytics("product_view", {
-      source: "catalog_card_visible",
+      source: "catalog_group_visible",
       productId: id,
       productName: card.dataset.productName || "",
       productCategory: card.dataset.productCategory || ""
@@ -211,12 +524,6 @@
         window.ALIZZ_ANALYTICS.track(eventName, metadata || {});
       }
     } catch (error) {}
-  }
-
-
-  function openGeneralWhatsApp() {
-    const message = "Halo admin ALIZZ STORE, saya mau order produk digital. Bisa dibantu?";
-    window.open(`https://wa.me/${window.ALIZZ_STORE.WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
   }
 
   async function copyText(text) {
